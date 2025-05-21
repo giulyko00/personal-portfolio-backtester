@@ -14,9 +14,10 @@ export type ImportFormat = "tradestation" | "multicharts" | "ninjatrader"
 interface FileUploaderProps {
   onFilesUploaded: (files: File[], quantities: number[], format: ImportFormat) => void
   isLoading: boolean
+  disabled?: boolean
 }
 
-export function FileUploader({ onFilesUploaded, isLoading }: FileUploaderProps) {
+export function FileUploader({ onFilesUploaded, isLoading, disabled = false }: FileUploaderProps) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [quantities, setQuantities] = useState<number[]>([])
   const [selectedFormat, setSelectedFormat] = useState<ImportFormat>("tradestation")
@@ -59,6 +60,7 @@ export function FileUploader({ onFilesUploaded, isLoading }: FileUploaderProps) 
                 onClick={() => setSelectedFormat("tradestation")}
                 variant={selectedFormat === "tradestation" ? "default" : "outline"}
                 className={`flex-1 ${selectedFormat === "tradestation" ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                disabled={disabled}
               >
                 TradeStation
               </Button>
@@ -67,6 +69,7 @@ export function FileUploader({ onFilesUploaded, isLoading }: FileUploaderProps) 
                 onClick={() => setSelectedFormat("multicharts")}
                 variant={selectedFormat === "multicharts" ? "default" : "outline"}
                 className={`flex-1 ${selectedFormat === "multicharts" ? "bg-green-600 hover:bg-green-700" : ""}`}
+                disabled={disabled}
               >
                 MultiCharts
               </Button>
@@ -75,6 +78,7 @@ export function FileUploader({ onFilesUploaded, isLoading }: FileUploaderProps) 
                 onClick={() => setSelectedFormat("ninjatrader")}
                 variant={selectedFormat === "ninjatrader" ? "default" : "outline"}
                 className={`flex-1 ${selectedFormat === "ninjatrader" ? "bg-red-600 hover:bg-red-700" : ""}`}
+                disabled={disabled}
               >
                 NinjaTrader
               </Button>
@@ -84,7 +88,15 @@ export function FileUploader({ onFilesUploaded, isLoading }: FileUploaderProps) 
           <div className="flex flex-col space-y-2">
             <Label htmlFor="files">Select Files</Label>
             <div className="flex items-center gap-2">
-              <Input id="files" type="file" multiple accept=".csv" onChange={handleFileChange} className="flex-1" />
+              <Input
+                id="files"
+                type="file"
+                multiple
+                accept=".csv"
+                onChange={handleFileChange}
+                className="flex-1"
+                disabled={disabled}
+              />
             </div>
           </div>
         </div>
@@ -107,6 +119,7 @@ export function FileUploader({ onFilesUploaded, isLoading }: FileUploaderProps) 
                       value={quantities[index]}
                       onChange={(e) => handleQuantityChange(index, e.target.value)}
                       className="w-20"
+                      disabled={disabled}
                     />
                   </div>
                 </div>
@@ -115,13 +128,13 @@ export function FileUploader({ onFilesUploaded, isLoading }: FileUploaderProps) 
 
             <Button
               onClick={handleSubmit}
-              disabled={isLoading}
+              disabled={isLoading || disabled}
               className={`w-full ${
                 selectedFormat === "tradestation"
                   ? "bg-blue-600 hover:bg-blue-700"
                   : selectedFormat === "multicharts"
                     ? "bg-green-600 hover:bg-green-700"
-                    : "bg-purple-600 hover:bg-purple-700"
+                    : "bg-red-600 hover:bg-red-700"
               }`}
             >
               {isLoading ? (

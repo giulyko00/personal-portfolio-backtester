@@ -22,7 +22,8 @@ from processors import (
 )
 
 app = Flask(__name__)
-CORS(app)
+# Configura CORS per consentire richieste da qualsiasi origine
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 @app.route('/api/process', methods=['POST'])
 def process_files():
@@ -57,6 +58,7 @@ def process_files():
         return jsonify(portfolio_data)
     
     except Exception as e:
+        print(f"Errore durante l'elaborazione: {str(e)}")
         return jsonify({'error': str(e)}), 500
     
     finally:
@@ -149,6 +151,7 @@ def filter_by_date():
         return jsonify(filtered_portfolio_data)
     
     except Exception as e:
+        print(f"Errore durante il filtraggio: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 def convert_dates_to_strings(data):
@@ -166,5 +169,10 @@ def convert_dates_to_strings(data):
     else:
         return data
 
+@app.route('/api/test', methods=['GET'])
+def test_connection():
+    """Endpoint di test per verificare che il server sia in esecuzione"""
+    return jsonify({"status": "ok", "message": "Backend is running"})
+
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5000, host='0.0.0.0')
