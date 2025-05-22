@@ -1,42 +1,67 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { FileUploader, type ImportFormat } from "@/components/file-uploader"
 import { DateRangeFilter } from "@/components/date-range-filter"
 import { TabNavigation } from "@/components/tab-navigation"
 import { EquityCurveTab } from "@/components/tabs/equity-curve-tab"
 import { ReturnsDistributionTab } from "@/components/tabs/returns-distribution-tab"
 import { SingleStrategiesTab } from "@/components/tabs/single-strategies-tab"
-import { MarginInfo } from "@/components/margin-info"
 import type { PortfolioData } from "@/types/portfolio"
 import { Button } from "@/components/ui/button"
 import { RefreshCw } from "lucide-react"
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
 
-// URL del backend configurabile
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000"
+// URL del backend
+const API_URL = "http://localhost:5000"
 
 export function BacktestDashboard() {
   const [activeTab, setActiveTab] = useState("equity-curve")
   const [portfolioData, setPortfolioData] = useState<PortfolioData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [backendStatus, setBackendStatus] = useState<"checking" | "online" | "offline">("checking")
   const [dateRange, setDateRange] = useState({
     startDate: "2008-01-01",
     endDate: "2099-01-01",
   })
-  const [symbols, setSymbols] = useState<string[]>([])
+
+  // Verifica che il backend sia in esecuzione all'avvio del componente
+  useEffect(() => {
+    const checkBackendStatus = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/test`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+
+        if (response.ok) {
+          setBackendStatus("online")
+        } else {
+          setBackendStatus("offline")
+        }
+      } catch (error) {
+        console.error("Errore durante la verifica dello stato del backend:", error)
+        setBackendStatus("offline")
+      }
+    }
+
+    checkBackendStatus()
+  }, [])
 
   const handleFilesUploaded = async (files: File[], quantities: number[], format: ImportFormat) => {
     setIsLoading(true)
     setError(null)
 
     try {
-      // Estrai i simboli dai nomi dei file
-      const extractedSymbols = files.map((file) => {
-        const fileName = file.name.split(".")[0]
-        return fileName.split("-")[0].trim().toUpperCase()
-      })
-      setSymbols(extractedSymbols)
+      // Verifica che il backend sia in esecuzione
+      if (backendStatus === "offline") {
+        throw new Error(
+          "Il backend Python non è in esecuzione. Avvia il server Python con 'python app.py' nella cartella backend.",
+        )
+      }
 
       // Crea un FormData per inviare i file al backend Python
       const formData = new FormData()
@@ -50,23 +75,15 @@ export function BacktestDashboard() {
       formData.append("quantities", JSON.stringify(quantities))
       formData.append("format", format)
 
-      console.log(`Inviando richiesta a ${BACKEND_URL}/api/process...`)
-
-      // Invia la richiesta al backend Python con un timeout più lungo
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 60000) // 60 secondi di timeout
-
-      const response = await fetch(`${BACKEND_URL}/api/process`, {
+      // Invia la richiesta al backend Python
+      const response = await fetch(`${API_URL}/api/process`, {
         method: "POST",
         body: formData,
-        signal: controller.signal,
       })
 
-      clearTimeout(timeoutId)
-
       if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`Errore HTTP ${response.status}: ${errorText}`)
+        const errorData = await response.json()
+        throw new Error(errorData.error || `Errore HTTP: ${response.status}`)
       }
 
       // Analizza la risposta JSON
@@ -76,21 +93,9 @@ export function BacktestDashboard() {
       const convertedData = convertDatesFromStrings(processedData)
 
       setPortfolioData(convertedData)
-    } catch (error: any) {
+    } catch (error) {
       console.error(`Errore nell'elaborazione dei file ${format}:`, error)
-
-      let errorMessage = "Si è verificato un errore durante l'elaborazione dei file."
-
-      if (error.name === "AbortError") {
-        errorMessage = "La richiesta è scaduta. Verifica che il backend sia in esecuzione e riprova."
-      } else if (error.message.includes("Failed to fetch")) {
-        errorMessage =
-          "Impossibile connettersi al backend. Verifica che il server Python sia in esecuzione su http://localhost:5000."
-      } else {
-        errorMessage = `Errore: ${error.message}`
-      }
-
-      setError(errorMessage)
+      setError(error instanceof Error ? error.message : "Errore sconosciuto")
     } finally {
       setIsLoading(false)
     }
@@ -135,53 +140,54 @@ export function BacktestDashboard() {
     return data as PortfolioData
   }
 
-  const handleDateRangeChange = (startDate: string, endDate: string) => {
+  const handleDateRangeChange = async (startDate: string, endDate: string, filteredData: PortfolioData) => {
     setDateRange({ startDate, endDate })
-    // Se abbiamo dati del portafoglio, li filtreremmo qui in base al nuovo intervallo di date
-    if (portfolioData) {
-      // Questo verrebbe implementato in un'applicazione reale
-      // Per ora, registriamo solo il nuovo intervallo di date
-      console.log(`Filtraggio dei dati da ${startDate} a ${endDate}`)
-    }
+    setPortfolioData(filteredData)
   }
 
   const handleReset = () => {
     setPortfolioData(null)
     setActiveTab("equity-curve")
-    setSymbols([])
     setError(null)
+    setDateRange({
+      startDate: "2008-01-01",
+      endDate: "2099-01-01",
+    })
   }
 
   return (
     <div className="space-y-6">
-      {!portfolioData ? (
-        <>
-          <FileUploader onFilesUploaded={handleFilesUploaded} isLoading={isLoading} />
+      {backendStatus === "offline" && (
+        <Alert variant="destructive">
+          <AlertTitle>Backend non disponibile</AlertTitle>
+          <AlertDescription>
+            Il backend Python non è in esecuzione. Avvia il server Python con 'python app.py' nella cartella backend.
+          </AlertDescription>
+        </Alert>
+      )}
 
-          {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-              <strong className="font-bold">Errore! </strong>
-              <span className="block sm:inline">{error}</span>
-              <p className="mt-2 text-sm">
-                Assicurati che il backend Python sia in esecuzione con il comando:
-                <code className="block mt-1 bg-gray-200 p-2 rounded">
-                  cd backend
-                  <br />
-                  python app.py
-                </code>
-              </p>
-            </div>
-          )}
-        </>
+      {error && (
+        <Alert variant="destructive">
+          <AlertTitle>Errore</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {!portfolioData ? (
+        <FileUploader
+          onFilesUploaded={handleFilesUploaded}
+          isLoading={isLoading}
+          disabled={backendStatus === "offline"}
+        />
       ) : (
         <>
-          <MarginInfo symbols={symbols} />
-
           <div className="flex justify-between items-center">
             <DateRangeFilter
               startDate={dateRange.startDate}
               endDate={dateRange.endDate}
+              portfolioData={portfolioData}
               onApplyFilter={handleDateRangeChange}
+              isLoading={isLoading}
             />
             <Button variant="outline" className="flex items-center gap-2" onClick={handleReset}>
               <RefreshCw className="h-4 w-4" />

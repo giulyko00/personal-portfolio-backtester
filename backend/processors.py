@@ -3,23 +3,18 @@ import numpy as np
 from scipy import stats
 from datetime import datetime
 import re
-from margin_scraper import calculate_margin_for_symbol, calculate_margin_for_strategy
+from margin_scraper import calculate_margin_for_symbol
 
 def process_tradestation_csv(file_paths, quantities):
     """Processa i file CSV di TradeStation e calcola le statistiche del portafoglio"""
     strategies = []
     portfolio_trades = []
-    symbols = []
-    file_names = []
     
     # Processa ogni file
     for i, file_path in enumerate(file_paths):
         quantity = quantities[i] if i < len(quantities) else 1
         file_name = file_path.split("/")[-1].split(".")[0]
         symbol = file_name.split("-")[0].strip().upper()
-        
-        file_names.append(file_name)
-        symbols.append(symbol)
         
         # Leggi e analizza il contenuto del file
         trades = parse_tradestation_csv(file_path, quantity)
@@ -61,8 +56,8 @@ def process_tradestation_csv(file_paths, quantities):
     dfs_equity_strategies = [{"exitTime": [t["exitTime"] for t in s["trades"]], "equity": s["equity"]} for s in strategies]
     correlation_matrix = calculate_strategy_correlation(dfs_equity_strategies, portfolio_trades)
     
-    # Calcola i margini utilizzando lo scraping
-    strategy_margins = calculate_margin_for_strategy(file_names, symbols, quantities)
+    # Calcola i margini
+    strategy_margins = calculate_strategy_margins(strategies)
     used_margins = calculate_used_margin(strategies, portfolio_trades, strategy_margins)
     
     # Calcola le statistiche dei margini
@@ -93,17 +88,12 @@ def process_multicharts_csv(file_paths, quantities):
     """Processa i file CSV di MultiCharts e calcola le statistiche del portafoglio"""
     strategies = []
     portfolio_trades = []
-    symbols = []
-    file_names = []
     
     # Processa ogni file
     for i, file_path in enumerate(file_paths):
         quantity = quantities[i] if i < len(quantities) else 1
         file_name = file_path.split("/")[-1].split(".")[0]
         symbol = file_name.split("-")[0].strip().upper()
-        
-        file_names.append(file_name)
-        symbols.append(symbol)
         
         # Leggi e analizza il contenuto del file
         trades = parse_multicharts_csv(file_path, quantity)
@@ -134,9 +124,7 @@ def process_multicharts_csv(file_paths, quantities):
     daily_returns = calculate_daily_returns(portfolio_trades)
     dfs_equity_strategies = [{"exitTime": [t["exitTime"] for t in s["trades"]], "equity": s["equity"]} for s in strategies]
     correlation_matrix = calculate_strategy_correlation(dfs_equity_strategies, portfolio_trades)
-    
-    # Calcola i margini utilizzando lo scraping
-    strategy_margins = calculate_margin_for_strategy(file_names, symbols, quantities)
+    strategy_margins = calculate_strategy_margins(strategies)
     used_margins = calculate_used_margin(strategies, portfolio_trades, strategy_margins)
     
     margins = {
@@ -165,17 +153,12 @@ def process_ninjatrader_csv(file_paths, quantities):
     """Processa i file CSV di NinjaTrader e calcola le statistiche del portafoglio"""
     strategies = []
     portfolio_trades = []
-    symbols = []
-    file_names = []
     
     # Processa ogni file
     for i, file_path in enumerate(file_paths):
         quantity = quantities[i] if i < len(quantities) else 1
         file_name = file_path.split("/")[-1].split(".")[0]
         symbol = file_name.split("-")[0].strip().upper()
-        
-        file_names.append(file_name)
-        symbols.append(symbol)
         
         # Leggi e analizza il contenuto del file
         trades = parse_ninjatrader_csv(file_path, quantity)
@@ -206,9 +189,7 @@ def process_ninjatrader_csv(file_paths, quantities):
     daily_returns = calculate_daily_returns(portfolio_trades)
     dfs_equity_strategies = [{"exitTime": [t["exitTime"] for t in s["trades"]], "equity": s["equity"]} for s in strategies]
     correlation_matrix = calculate_strategy_correlation(dfs_equity_strategies, portfolio_trades)
-    
-    # Calcola i margini utilizzando lo scraping
-    strategy_margins = calculate_margin_for_strategy(file_names, symbols, quantities)
+    strategy_margins = calculate_strategy_margins(strategies)
     used_margins = calculate_used_margin(strategies, portfolio_trades, strategy_margins)
     
     margins = {
@@ -660,14 +641,26 @@ def calculate_strategy_correlation(dfs_equity_strategies, portfolio_trades):
     
     return correlation_matrix
 
+def calculate_strategy_margins(strategies):
+    """Calcola i margini delle strategie utilizzando lo scraping da TradeStation"""
+    strategy_margins = []
+    
+    for strategy in strategies:
+        symbol = strategy['symbol']
+        quantity = strategy['quantity']
+        margin = calculate_margin_for_symbol(symbol) * quantity
+        strategy_margins.append(margin)
+    
+    return strategy_margins
+
 def calculate_used_margin(strategies, portfolio_trades, strategy_margins):
     """Calcola il margine utilizzato"""
     if not portfolio_trades:
         return []
         
     # Trova l'intervallo di date
-    start_date = min([t["openTime"] for t in portfolio_trades])
-    end_date = max([t["exitTime"] for t in portfolio_trades])
+    start_date = min([t['openTime'] for t in portfolio_trades])
+    end_date = max([t['exitTime'] for t in portfolio_trades])
     
     # Crea una serie di date (intervalli orari)
     dates = []
@@ -686,10 +679,10 @@ def calculate_used_margin(strategies, portfolio_trades, strategy_margins):
         
         for i, strategy in enumerate(strategies):
             # Controlla se ci sono trade aperti per questa strategia in questa data
-            open_trades = [t for t in strategy["trades"] if t["openTime"] <= date <= t["exitTime"]]
+            open_trades = [t for t in strategy['trades'] if t['openTime'] <= date <= t['exitTime']]
             
             margin_used = strategy_margins[i] if open_trades else 0
-            strategy_margins_used[strategy["name"]] = margin_used
+            strategy_margins_used[strategy['name']] = margin_used
             total_margin += margin_used
         
         used_margins.append({
