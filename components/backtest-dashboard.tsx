@@ -11,11 +11,13 @@ import type { PortfolioData } from "@/types/portfolio"
 import { processTradeStationCSV, processMultiChartsCSV, processNinjaTraderCSV } from "@/lib/data-processors"
 import { Button } from "@/components/ui/button"
 import { RefreshCw } from "lucide-react"
+import { AlertCircle } from "lucide-react"
 
 export function BacktestDashboard() {
   const [activeTab, setActiveTab] = useState("equity-curve")
   const [portfolioData, setPortfolioData] = useState<PortfolioData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [dateRange, setDateRange] = useState({
     startDate: "2008-01-01",
     endDate: "2099-01-01",
@@ -23,6 +25,8 @@ export function BacktestDashboard() {
 
   const handleFilesUploaded = async (files: File[], quantities: number[], format: ImportFormat) => {
     setIsLoading(true)
+    setError(null)
+
     try {
       // Process the uploaded files based on the selected format
       let processedData: PortfolioData
@@ -44,7 +48,8 @@ export function BacktestDashboard() {
       setPortfolioData(processedData)
     } catch (error) {
       console.error(`Error processing ${format} files:`, error)
-      alert(`Error processing ${format} files. Please check the console for details.`)
+      setError(error.message || `Error processing ${format} files. Please check the console for details.`)
+      setPortfolioData(null)
     } finally {
       setIsLoading(false)
     }
@@ -62,11 +67,26 @@ export function BacktestDashboard() {
 
   const handleReset = () => {
     setPortfolioData(null)
+    setError(null)
     setActiveTab("equity-curve")
   }
 
   return (
     <div className="space-y-6">
+      {error && (
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <AlertCircle className="h-5 w-5 text-red-500" />
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">Error</h3>
+              <div className="mt-1 text-sm text-red-700">{error}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {!portfolioData ? (
         <FileUploader onFilesUploaded={handleFilesUploaded} isLoading={isLoading} />
       ) : (

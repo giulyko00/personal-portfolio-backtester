@@ -1,4 +1,4 @@
-import type { PortfolioData, Trade, Strategy, MonthlyReturns, DailyReturns, UsedMargin } from "@/types/portfolio"
+import type { PortfolioData, Strategy, Trade, UsedMargin } from "@/types/portfolio"
 
 // Interfaccia per la cache dei margini
 interface MarginsCache {
@@ -98,243 +98,289 @@ function getHardcodedMargins(): Record<string, number> {
 
 // Function to parse CSV data from TradeStation format
 export async function processTradeStationCSV(files: File[], quantities: number[]): Promise<PortfolioData> {
-  // This is a simplified implementation - in a real app, you would parse the CSV files
-  // and perform all the calculations from the original Python script
+  try {
+    // This is a simplified implementation - in a real app, you would parse the CSV files
+    // and perform all the calculations from the original Python script
 
-  const strategies: Strategy[] = []
-  const portfolioTrades: Trade[] = []
+    const strategies: Strategy[] = []
+    const portfolioTrades: Trade[] = []
 
-  // Process each file
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i]
-    const quantity = quantities[i]
-    const fileName = file.name.split(".")[0]
-    const symbol = fileName.split("-")[0].trim().toUpperCase()
+    // Process each file
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      const quantity = quantities[i]
+      const fileName = file.name.split(".")[0]
+      const symbol = fileName.split("-")[0].trim().toUpperCase()
 
-    // Read and parse the file content
-    const content = await file.text()
-    const trades = parseTradeStationCSV(content, quantity)
+      // Read and parse the file content
+      const content = await file.text()
+      const trades = parseTradeStationCSV(content, quantity)
 
-    // Calculate equity curve for this strategy
-    const equity = calculateEquityCurve(trades)
-    const netProfit = equity[equity.length - 1] || 0
+      // Skip if no trades were parsed
+      if (trades.length === 0) {
+        console.warn(`No trades found in file: ${file.name}`)
+        continue
+      }
 
-    // Add strategy to the list
-    strategies.push({
-      name: fileName,
-      symbol,
-      quantity,
-      trades,
-      equity,
-      netProfit,
-    })
+      // Calculate equity curve for this strategy
+      const equity = calculateEquityCurve(trades)
+      const netProfit = equity[equity.length - 1] || 0
 
-    // Add trades to portfolio
-    portfolioTrades.push(...trades)
-  }
+      // Add strategy to the list
+      strategies.push({
+        name: fileName,
+        symbol,
+        quantity,
+        trades,
+        equity,
+        netProfit,
+      })
 
-  // Sort portfolio trades by exit time
-  portfolioTrades.sort((a, b) => a.exitTime.getTime() - b.exitTime.getTime())
+      // Add trades to portfolio
+      portfolioTrades.push(...trades)
+    }
 
-  // Calculate portfolio equity
-  const portfolioEquity = calculateEquityCurve(portfolioTrades)
+    // Check if we have any strategies
+    if (strategies.length === 0) {
+      throw new Error("No valid strategies found in the uploaded files")
+    }
 
-  // Calculate drawdowns
-  const drawdowns = calculateDrawdowns(portfolioEquity)
+    // Sort portfolio trades by exit time
+    portfolioTrades.sort((a, b) => a.exitTime.getTime() - b.exitTime.getTime())
 
-  // Calculate statistics
-  const statistics = calculateStatistics(portfolioTrades, portfolioEquity, drawdowns)
+    // Calculate portfolio equity
+    const portfolioEquity = calculateEquityCurve(portfolioTrades)
 
-  // Calculate monthly and daily returns
-  const monthlyReturns = calculateMonthlyReturns(portfolioTrades)
-  const dailyReturns = calculateDailyReturns(portfolioTrades)
+    // Calculate drawdowns
+    const drawdowns = calculateDrawdowns(portfolioEquity)
 
-  // Calculate correlation matrix
-  const dfsEquityStrategies = strategies.map((s) => ({
-    exitTime: s.trades.map((t) => t.exitTime),
-    equity: s.equity,
-  }))
-  const correlationMatrix = calculateStrategyCorrelation(dfsEquityStrategies, portfolioTrades)
+    // Calculate statistics
+    const statistics = calculateStatistics(portfolioTrades, portfolioEquity, drawdowns)
 
-  // Calculate margins
-  const strategyMargins = await calculateStrategyMargins(strategies)
-  const usedMargins = await calculateUsedMargin(strategies, portfolioTrades, strategyMargins)
+    // Calculate monthly and daily returns
+    const monthlyReturns = calculateMonthlyReturns(portfolioTrades)
+    const dailyReturns = calculateDailyReturns(portfolioTrades)
 
-  // Calculate margin statistics
-  const margins = {
-    strategyMargins,
-    minimumAccountRequired: sum(strategyMargins) + statistics.maxDrawdown,
-    maxUsedMargin: Math.max(...usedMargins.map((m) => m.totalMargin)),
-    maxUsedMarginOccurrences: countMaxOccurrences(usedMargins.map((m) => m.totalMargin)),
-    maxUsedMarginFirstDate:
-      usedMargins
-        .find((m) => m.totalMargin === Math.max(...usedMargins.map((um) => um.totalMargin)))
-        ?.date.toISOString()
-        .split("T")[0] || "",
-  }
+    // Calculate correlation matrix
+    const dfsEquityStrategies = strategies.map((s) => ({
+      exitTime: s.trades.map((t) => t.exitTime),
+      equity: s.equity,
+    }))
+    const correlationMatrix = calculateStrategyCorrelation(dfsEquityStrategies, portfolioTrades)
 
-  // Return the complete portfolio data
-  return {
-    strategies,
-    portfolioTrades,
-    portfolioEquity,
-    drawdowns,
-    statistics,
-    monthlyReturns,
-    dailyReturns,
-    correlationMatrix,
-    margins,
-    usedMargins,
+    // Calculate margins
+    const strategyMargins = await calculateStrategyMargins(strategies)
+    const usedMargins = await calculateUsedMargin(strategies, portfolioTrades, strategyMargins)
+
+    // Calculate margin statistics
+    const margins = {
+      strategyMargins,
+      minimumAccountRequired: sum(strategyMargins) + statistics.maxDrawdown,
+      maxUsedMargin: Math.max(...usedMargins.map((m) => m.totalMargin), 0),
+      maxUsedMarginOccurrences: countMaxOccurrences(usedMargins.map((m) => m.totalMargin)),
+      maxUsedMarginFirstDate:
+        usedMargins
+          .find((m) => m.totalMargin === Math.max(...usedMargins.map((um) => um.totalMargin), 0))
+          ?.date.toISOString()
+          .split("T")[0] || "",
+    }
+
+    // Return the complete portfolio data
+    return {
+      strategies,
+      portfolioTrades,
+      portfolioEquity,
+      drawdowns,
+      statistics,
+      monthlyReturns,
+      dailyReturns,
+      correlationMatrix,
+      margins,
+      usedMargins,
+    }
+  } catch (error) {
+    console.error("Error in processTradeStationCSV:", error)
+    throw new Error(`Error processing TradeStation files: ${error.message}`)
   }
 }
 
 // Function to parse CSV data from MultiCharts format
 export async function processMultiChartsCSV(files: File[], quantities: number[]): Promise<PortfolioData> {
-  // For now, we'll use the same implementation as TradeStation with a different parser
-  const strategies: Strategy[] = []
-  const portfolioTrades: Trade[] = []
+  try {
+    const strategies: Strategy[] = []
+    const portfolioTrades: Trade[] = []
 
-  // Process each file
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i]
-    const quantity = quantities[i]
-    const fileName = file.name.split(".")[0]
-    const symbol = fileName.split("-")[0].trim().toUpperCase()
+    // Process each file
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      const quantity = quantities[i]
+      const fileName = file.name.split(".")[0]
+      const symbol = fileName.split("-")[0].trim().toUpperCase()
 
-    // Read and parse the file content
-    const content = await file.text()
-    const trades = parseMultiChartsCSV(content, quantity)
+      // Read and parse the file content
+      const content = await file.text()
+      const trades = parseMultiChartsCSV(content, quantity)
 
-    // Calculate equity curve for this strategy
-    const equity = calculateEquityCurve(trades)
-    const netProfit = equity[equity.length - 1] || 0
+      // Skip if no trades were parsed
+      if (trades.length === 0) {
+        console.warn(`No trades found in file: ${file.name}`)
+        continue
+      }
 
-    // Add strategy to the list
-    strategies.push({
-      name: fileName,
-      symbol,
-      quantity,
-      trades,
-      equity,
-      netProfit,
-    })
+      // Calculate equity curve for this strategy
+      const equity = calculateEquityCurve(trades)
+      const netProfit = equity[equity.length - 1] || 0
 
-    // Add trades to portfolio
-    portfolioTrades.push(...trades)
-  }
+      // Add strategy to the list
+      strategies.push({
+        name: fileName,
+        symbol,
+        quantity,
+        trades,
+        equity,
+        netProfit,
+      })
 
-  // The rest of the processing is the same as TradeStation
-  portfolioTrades.sort((a, b) => a.exitTime.getTime() - b.exitTime.getTime())
-  const portfolioEquity = calculateEquityCurve(portfolioTrades)
-  const drawdowns = calculateDrawdowns(portfolioEquity)
-  const statistics = calculateStatistics(portfolioTrades, portfolioEquity, drawdowns)
-  const monthlyReturns = calculateMonthlyReturns(portfolioTrades)
-  const dailyReturns = calculateDailyReturns(portfolioTrades)
-  const dfsEquityStrategies = strategies.map((s) => ({
-    exitTime: s.trades.map((t) => t.exitTime),
-    equity: s.equity,
-  }))
-  const correlationMatrix = calculateStrategyCorrelation(dfsEquityStrategies, portfolioTrades)
-  const strategyMargins = await calculateStrategyMargins(strategies)
-  const usedMargins = await calculateUsedMargin(strategies, portfolioTrades, strategyMargins)
-  const margins = {
-    strategyMargins,
-    minimumAccountRequired: sum(strategyMargins) + statistics.maxDrawdown,
-    maxUsedMargin: Math.max(...usedMargins.map((m) => m.totalMargin)),
-    maxUsedMarginOccurrences: countMaxOccurrences(usedMargins.map((m) => m.totalMargin)),
-    maxUsedMarginFirstDate:
-      usedMargins
-        .find((m) => m.totalMargin === Math.max(...usedMargins.map((um) => um.totalMargin)))
-        ?.date.toISOString()
-        .split("T")[0] || "",
-  }
+      // Add trades to portfolio
+      portfolioTrades.push(...trades)
+    }
 
-  return {
-    strategies,
-    portfolioTrades,
-    portfolioEquity,
-    drawdowns,
-    statistics,
-    monthlyReturns,
-    dailyReturns,
-    correlationMatrix,
-    margins,
-    usedMargins,
+    // Check if we have any strategies
+    if (strategies.length === 0) {
+      throw new Error("No valid strategies found in the uploaded files")
+    }
+
+    // The rest of the processing is the same as TradeStation
+    portfolioTrades.sort((a, b) => a.exitTime.getTime() - b.exitTime.getTime())
+    const portfolioEquity = calculateEquityCurve(portfolioTrades)
+    const drawdowns = calculateDrawdowns(portfolioEquity)
+    const statistics = calculateStatistics(portfolioTrades, portfolioEquity, drawdowns)
+    const monthlyReturns = calculateMonthlyReturns(portfolioTrades)
+    const dailyReturns = calculateDailyReturns(portfolioTrades)
+    const dfsEquityStrategies = strategies.map((s) => ({
+      exitTime: s.trades.map((t) => t.exitTime),
+      equity: s.equity,
+    }))
+    const correlationMatrix = calculateStrategyCorrelation(dfsEquityStrategies, portfolioTrades)
+    const strategyMargins = await calculateStrategyMargins(strategies)
+    const usedMargins = await calculateUsedMargin(strategies, portfolioTrades, strategyMargins)
+    const margins = {
+      strategyMargins,
+      minimumAccountRequired: sum(strategyMargins) + statistics.maxDrawdown,
+      maxUsedMargin: Math.max(...usedMargins.map((m) => m.totalMargin), 0),
+      maxUsedMarginOccurrences: countMaxOccurrences(usedMargins.map((m) => m.totalMargin)),
+      maxUsedMarginFirstDate:
+        usedMargins
+          .find((m) => m.totalMargin === Math.max(...usedMargins.map((um) => um.totalMargin), 0))
+          ?.date.toISOString()
+          .split("T")[0] || "",
+    }
+
+    return {
+      strategies,
+      portfolioTrades,
+      portfolioEquity,
+      drawdowns,
+      statistics,
+      monthlyReturns,
+      dailyReturns,
+      correlationMatrix,
+      margins,
+      usedMargins,
+    }
+  } catch (error) {
+    console.error("Error in processMultiChartsCSV:", error)
+    throw new Error(`Error processing MultiCharts files: ${error.message}`)
   }
 }
 
 // Function to parse CSV data from NinjaTrader format
 export async function processNinjaTraderCSV(files: File[], quantities: number[]): Promise<PortfolioData> {
-  // For now, we'll use the same implementation as TradeStation with a different parser
-  const strategies: Strategy[] = []
-  const portfolioTrades: Trade[] = []
+  try {
+    const strategies: Strategy[] = []
+    const portfolioTrades: Trade[] = []
 
-  // Process each file
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i]
-    const quantity = quantities[i]
-    const fileName = file.name.split(".")[0]
-    const symbol = fileName.split("-")[0].trim().toUpperCase()
+    // Process each file
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      const quantity = quantities[i]
+      const fileName = file.name.split(".")[0]
+      const symbol = fileName.split("-")[0].trim().toUpperCase()
 
-    // Read and parse the file content
-    const content = await file.text()
-    const trades = parseNinjaTraderCSV(content, quantity)
+      // Read and parse the file content
+      const content = await file.text()
+      const trades = parseNinjaTraderCSV(content, quantity)
 
-    // Calculate equity curve for this strategy
-    const equity = calculateEquityCurve(trades)
-    const netProfit = equity[equity.length - 1] || 0
+      // Skip if no trades were parsed
+      if (trades.length === 0) {
+        console.warn(`No trades found in file: ${file.name}`)
+        continue
+      }
 
-    // Add strategy to the list
-    strategies.push({
-      name: fileName,
-      symbol,
-      quantity,
-      trades,
-      equity,
-      netProfit,
-    })
+      // Calculate equity curve for this strategy
+      const equity = calculateEquityCurve(trades)
+      const netProfit = equity[equity.length - 1] || 0
 
-    // Add trades to portfolio
-    portfolioTrades.push(...trades)
-  }
+      // Add strategy to the list
+      strategies.push({
+        name: fileName,
+        symbol,
+        quantity,
+        trades,
+        equity,
+        netProfit,
+      })
 
-  // The rest of the processing is the same as TradeStation
-  portfolioTrades.sort((a, b) => a.exitTime.getTime() - b.exitTime.getTime())
-  const portfolioEquity = calculateEquityCurve(portfolioTrades)
-  const drawdowns = calculateDrawdowns(portfolioEquity)
-  const statistics = calculateStatistics(portfolioTrades, portfolioEquity, drawdowns)
-  const monthlyReturns = calculateMonthlyReturns(portfolioTrades)
-  const dailyReturns = calculateDailyReturns(portfolioTrades)
-  const dfsEquityStrategies = strategies.map((s) => ({
-    exitTime: s.trades.map((t) => t.exitTime),
-    equity: s.equity,
-  }))
-  const correlationMatrix = calculateStrategyCorrelation(dfsEquityStrategies, portfolioTrades)
-  const strategyMargins = await calculateStrategyMargins(strategies)
-  const usedMargins = await calculateUsedMargin(strategies, portfolioTrades, strategyMargins)
-  const margins = {
-    strategyMargins,
-    minimumAccountRequired: sum(strategyMargins) + statistics.maxDrawdown,
-    maxUsedMargin: Math.max(...usedMargins.map((m) => m.totalMargin)),
-    maxUsedMarginOccurrences: countMaxOccurrences(usedMargins.map((m) => m.totalMargin)),
-    maxUsedMarginFirstDate:
-      usedMargins
-        .find((m) => m.totalMargin === Math.max(...usedMargins.map((um) => um.totalMargin)))
-        ?.date.toISOString()
-        .split("T")[0] || "",
-  }
+      // Add trades to portfolio
+      portfolioTrades.push(...trades)
+    }
 
-  return {
-    strategies,
-    portfolioTrades,
-    portfolioEquity,
-    drawdowns,
-    statistics,
-    monthlyReturns,
-    dailyReturns,
-    correlationMatrix,
-    margins,
-    usedMargins,
+    // Check if we have any strategies
+    if (strategies.length === 0) {
+      throw new Error("No valid strategies found in the uploaded files")
+    }
+
+    // The rest of the processing is the same as TradeStation
+    portfolioTrades.sort((a, b) => a.exitTime.getTime() - b.exitTime.getTime())
+    const portfolioEquity = calculateEquityCurve(portfolioTrades)
+    const drawdowns = calculateDrawdowns(portfolioEquity)
+    const statistics = calculateStatistics(portfolioTrades, portfolioEquity, drawdowns)
+    const monthlyReturns = calculateMonthlyReturns(portfolioTrades)
+    const dailyReturns = calculateDailyReturns(portfolioTrades)
+    const dfsEquityStrategies = strategies.map((s) => ({
+      exitTime: s.trades.map((t) => t.exitTime),
+      equity: s.equity,
+    }))
+    const correlationMatrix = calculateStrategyCorrelation(dfsEquityStrategies, portfolioTrades)
+    const strategyMargins = await calculateStrategyMargins(strategies)
+    const usedMargins = await calculateUsedMargin(strategies, portfolioTrades, strategyMargins)
+    const margins = {
+      strategyMargins,
+      minimumAccountRequired: sum(strategyMargins) + statistics.maxDrawdown,
+      maxUsedMargin: Math.max(...usedMargins.map((m) => m.totalMargin), 0),
+      maxUsedMarginOccurrences: countMaxOccurrences(usedMargins.map((m) => m.totalMargin)),
+      maxUsedMarginFirstDate:
+        usedMargins
+          .find((m) => m.totalMargin === Math.max(...usedMargins.map((um) => um.totalMargin), 0))
+          ?.date.toISOString()
+          .split("T")[0] || "",
+    }
+
+    return {
+      strategies,
+      portfolioTrades,
+      portfolioEquity,
+      drawdowns,
+      statistics,
+      monthlyReturns,
+      dailyReturns,
+      correlationMatrix,
+      margins,
+      usedMargins,
+    }
+  } catch (error) {
+    console.error("Error in processNinjaTraderCSV:", error)
+    throw new Error(`Error processing NinjaTrader files: ${error.message}`)
   }
 }
 
@@ -390,44 +436,30 @@ function parseMultiChartsCSV(csvContent: string, quantity: number): Trade[] {
   const trades: Trade[] = []
 
   // Skip header row
-  let i = 1
-
-  // Process trades (each trade is represented by 1 row in MultiCharts)
-  while (i < lines.length) {
+  for (let i = 1; i < lines.length; i++) {
     const row = lines[i].split(",")
+    if (row.length < 5) continue
 
-    // Skip if row is empty
-    if (!row.length) {
-      i++
-      continue
-    }
-
-    // Extract data from the row
     try {
-      // Assuming MultiCharts format has columns: Date, Time, Type, Price, Contracts, Profit
-      // This is a simplified example - adjust based on actual format
-      const dateStr = row[0]?.trim()
-      const timeStr = row[1]?.trim()
-      const entryDateStr = row[5]?.trim()
-      const entryTimeStr = row[6]?.trim()
-      const profitStr = row[10]?.trim()
+      const openTimeStr = row[0]?.trim()
+      const exitTimeStr = row[1]?.trim()
+      const profitStr = row[4]?.trim()
 
-      if (!dateStr || !timeStr || !profitStr || !entryDateStr || !entryTimeStr) {
-        i++
-        continue
-      }
+      if (!openTimeStr || !exitTimeStr || !profitStr) continue
 
-      // Parse dates and profit
-      const exitTime = parseMultiChartsDate(`${dateStr} ${timeStr}`)
-      const openTime = parseMultiChartsDate(`${entryDateStr} ${entryTimeStr}`)
-      const profit = parseMultiChartsProfit(profitStr) * quantity
+      // Parse dates (format: YYYY-MM-DD HH:MM:SS)
+      const openTime = new Date(openTimeStr)
+      const exitTime = new Date(exitTimeStr)
+
+      // Parse profit
+      const profit = Number.parseFloat(profitStr) * quantity
+
+      if (isNaN(openTime.getTime()) || isNaN(exitTime.getTime()) || isNaN(profit)) continue
 
       trades.push({ openTime, exitTime, profit })
     } catch (error) {
       console.error("Error parsing MultiCharts trade:", error)
     }
-
-    i++
   }
 
   return trades
@@ -439,42 +471,30 @@ function parseNinjaTraderCSV(csvContent: string, quantity: number): Trade[] {
   const trades: Trade[] = []
 
   // Skip header row
-  let i = 1
-
-  // Process trades (each trade is represented by 1 row in NinjaTrader)
-  while (i < lines.length) {
+  for (let i = 1; i < lines.length; i++) {
     const row = lines[i].split(",")
+    if (row.length < 6) continue
 
-    // Skip if row is empty
-    if (!row.length) {
-      i++
-      continue
-    }
-
-    // Extract data from the row
     try {
-      // Assuming NinjaTrader format has columns: Entry Time, Exit Time, Profit
-      // This is a simplified example - adjust based on actual format
-      const entryTimeStr = row[0]?.trim()
+      const openTimeStr = row[0]?.trim()
       const exitTimeStr = row[1]?.trim()
-      const profitStr = row[2]?.trim()
+      const profitStr = row[5]?.trim()
 
-      if (!entryTimeStr || !exitTimeStr || !profitStr) {
-        i++
-        continue
-      }
+      if (!openTimeStr || !exitTimeStr || !profitStr) continue
 
-      // Parse dates and profit
-      const openTime = parseNinjaTraderDate(entryTimeStr)
-      const exitTime = parseNinjaTraderDate(exitTimeStr)
-      const profit = parseNinjaTraderProfit(profitStr) * quantity
+      // Parse dates (format varies by NinjaTrader version)
+      const openTime = new Date(openTimeStr)
+      const exitTime = new Date(exitTimeStr)
+
+      // Parse profit
+      const profit = Number.parseFloat(profitStr) * quantity
+
+      if (isNaN(openTime.getTime()) || isNaN(exitTime.getTime()) || isNaN(profit)) continue
 
       trades.push({ openTime, exitTime, profit })
     } catch (error) {
       console.error("Error parsing NinjaTrader trade:", error)
     }
-
-    i++
   }
 
   return trades
@@ -496,40 +516,6 @@ function parseDate(dateStr: string): Date {
   )
 }
 
-// Helper function to parse date strings for MultiCharts
-function parseMultiChartsDate(dateStr: string): Date {
-  // Assuming format is MM/DD/YYYY HH:MM:SS
-  const [datePart, timePart] = dateStr.split(" ")
-  const [month, day, year] = datePart.split("/")
-  const [hour, minute, second] = timePart.split(":")
-
-  return new Date(
-    Number.parseInt(year),
-    Number.parseInt(month) - 1,
-    Number.parseInt(day),
-    Number.parseInt(hour),
-    Number.parseInt(minute),
-    Number.parseInt(second || "0"),
-  )
-}
-
-// Helper function to parse date strings for NinjaTrader
-function parseNinjaTraderDate(dateStr: string): Date {
-  // Assuming format is YYYY-MM-DD HH:MM:SS
-  const [datePart, timePart] = dateStr.split(" ")
-  const [year, month, day] = datePart.split("-")
-  const [hour, minute, second] = timePart.split(":")
-
-  return new Date(
-    Number.parseInt(year),
-    Number.parseInt(month) - 1,
-    Number.parseInt(day),
-    Number.parseInt(hour),
-    Number.parseInt(minute),
-    Number.parseInt(second || "0"),
-  )
-}
-
 // Helper function to parse profit values for TradeStation
 function parseProfit(profitStr: string): number {
   // Remove currency symbols, commas, etc.
@@ -538,23 +524,7 @@ function parseProfit(profitStr: string): number {
   return profitStr.includes("(") ? -Number.parseFloat(cleanedStr) : Number.parseFloat(cleanedStr)
 }
 
-// Helper function to parse profit values for MultiCharts
-function parseMultiChartsProfit(profitStr: string): number {
-  // Remove currency symbols, commas, etc.
-  const cleanedStr = profitStr.replace(/[$,]/g, "")
-  // Check if the value is negative
-  return profitStr.startsWith("-") ? -Number.parseFloat(cleanedStr.substring(1)) : Number.parseFloat(cleanedStr)
-}
-
-// Helper function to parse profit values for NinjaTrader
-function parseNinjaTraderProfit(profitStr: string): number {
-  // Remove currency symbols, commas, etc.
-  const cleanedStr = profitStr.replace(/[$,]/g, "")
-  // Check if the value is negative
-  return profitStr.startsWith("-") ? -Number.parseFloat(cleanedStr.substring(1)) : Number.parseFloat(cleanedStr)
-}
-
-// Calculate equity curve from trades
+// Helper function to calculate equity curve from trades
 function calculateEquityCurve(trades: Trade[]): number[] {
   const equity: number[] = []
   let cumulativeProfit = 0
@@ -567,7 +537,7 @@ function calculateEquityCurve(trades: Trade[]): number[] {
   return equity
 }
 
-// Calculate drawdowns from equity curve
+// Helper function to calculate drawdowns from equity curve
 function calculateDrawdowns(equity: number[]): number[] {
   const drawdowns: number[] = []
   let peak = equity[0] || 0
@@ -576,77 +546,95 @@ function calculateDrawdowns(equity: number[]): number[] {
     if (value > peak) {
       peak = value
     }
-    const drawdown = peak - value
-    drawdowns.push(-drawdown) // Negative values for drawdowns
+    const drawdown = value - peak
+    drawdowns.push(drawdown)
   }
 
   return drawdowns
 }
 
-// Calculate statistics from portfolio data
+// Helper function to calculate statistics
 function calculateStatistics(trades: Trade[], equity: number[], drawdowns: number[]): any {
-  // This is a simplified implementation - in a real app, you would implement
-  // all the statistical calculations from the original Python script
+  // Calculate total net profit
+  const totalNetProfit = equity.length > 0 ? equity[equity.length - 1] : 0
 
-  const totalNetProfit = equity[equity.length - 1] || 0
+  // Calculate max drawdown (as a positive number)
+  const maxDrawdown = Math.abs(Math.min(...drawdowns, 0))
 
-  // Calculate max drawdown
-  const maxDrawdown = Math.abs(Math.min(...drawdowns) || 0)
-
-  // Calculate mean drawdown
-  const meanDrawdown = Math.abs(drawdowns.reduce((sum, dd) => sum + dd, 0) / drawdowns.length)
-
-  // Calculate win ratio
-  const winningTrades = trades.filter((t) => t.profit > 0)
-  const winRatioPercentage = (winningTrades.length / trades.length) * 100
-
-  // Calculate average win and loss
-  const winningProfits = winningTrades.map((t) => t.profit)
-  const losingProfits = trades.filter((t) => t.profit < 0).map((t) => t.profit)
-
-  const averageWin = winningProfits.length ? winningProfits.reduce((sum, p) => sum + p, 0) / winningProfits.length : 0
-
-  const averageLoss = losingProfits.length ? losingProfits.reduce((sum, p) => sum + p, 0) / losingProfits.length : 0
-
-  const riskRewardRatio = averageLoss !== 0 ? averageWin / Math.abs(averageLoss) : Number.POSITIVE_INFINITY
+  // Calculate mean drawdown (as a positive number)
+  const meanDrawdown = Math.abs(
+    drawdowns.filter((d) => d < 0).reduce((sum, d) => sum + d, 0) / drawdowns.filter((d) => d < 0).length || 0,
+  )
 
   // Calculate profit factor
-  const totalGrossProfit = winningProfits.reduce((sum, p) => sum + p, 0)
-  const totalGrossLoss = Math.abs(losingProfits.reduce((sum, p) => sum + p, 0))
-  const profitFactor = totalGrossLoss !== 0 ? totalGrossProfit / totalGrossLoss : Number.POSITIVE_INFINITY
+  const grossProfit = trades.filter((t) => t.profit > 0).reduce((sum, t) => sum + t.profit, 0)
+  const grossLoss = Math.abs(trades.filter((t) => t.profit < 0).reduce((sum, t) => sum + t.profit, 0))
+  const profitFactor = grossLoss === 0 ? Number.POSITIVE_INFINITY : grossProfit / grossLoss
 
-  // Calculate average trade profit
-  const averageTradeProfit = trades.length ? trades.reduce((sum, t) => sum + t.profit, 0) / trades.length : 0
+  // Calculate win ratio
+  const winCount = trades.filter((t) => t.profit > 0).length
+  const winRatioPercentage = (winCount / trades.length) * 100 || 0
 
-  // Calculate max consecutive winning/losing trades
-  const maxConsecutiveWinningTrades = calculateMaxConsecutive(trades.map((t) => t.profit > 0))
-  const maxConsecutiveLosingTrades = calculateMaxConsecutive(trades.map((t) => t.profit < 0))
+  // Calculate risk-reward ratio
+  const avgWin = grossProfit / winCount || 0
+  const avgLoss = grossLoss / (trades.length - winCount) || 0
+  const riskRewardRatio = avgLoss === 0 ? Number.POSITIVE_INFINITY : avgWin / avgLoss
 
-  // Calculate trades per month
-  const months = new Set(trades.map((t) => `${t.exitTime.getFullYear()}-${t.exitTime.getMonth() + 1}`))
-  const tradesPerMonth = trades.length / Math.max(months.size, 1)
+  // Calculate consecutive trades
+  let maxConsecutiveWinningTrades = 0
+  let maxConsecutiveLosingTrades = 0
+  let currentWinStreak = 0
+  let currentLoseStreak = 0
 
-  // Calculate net profit per month
-  const netProfitPerMonth = totalNetProfit / Math.max(months.size, 1)
+  for (const trade of trades) {
+    if (trade.profit > 0) {
+      currentWinStreak++
+      currentLoseStreak = 0
+      maxConsecutiveWinningTrades = Math.max(maxConsecutiveWinningTrades, currentWinStreak)
+    } else if (trade.profit < 0) {
+      currentLoseStreak++
+      currentWinStreak = 0
+      maxConsecutiveLosingTrades = Math.max(maxConsecutiveLosingTrades, currentLoseStreak)
+    }
+  }
 
-  // Calculate Sharpe and Sortino ratios (simplified)
-  const sharpeRatio = 1.5 // Placeholder
-  const sortinoRatio = 2.0 // Placeholder
+  // Calculate trades per month and net profit per month
+  const firstDate = trades.length > 0 ? trades[0].exitTime : new Date()
+  const lastDate = trades.length > 0 ? trades[trades.length - 1].exitTime : new Date()
+  const monthsDiff =
+    (lastDate.getFullYear() - firstDate.getFullYear()) * 12 + lastDate.getMonth() - firstDate.getMonth() + 1
+  const tradesPerMonth = trades.length / monthsDiff || 0
+  const netProfitPerMonth = totalNetProfit / monthsDiff || 0
 
-  // Calculate real minimum account requirement
-  const realMinimumAccountReq = 10000 // Placeholder
+  // Calculate Sharpe and Sortino ratios
+  const returns = []
+  for (let i = 1; i < equity.length; i++) {
+    returns.push((equity[i] - equity[i - 1]) / Math.max(Math.abs(equity[i - 1]), 1))
+  }
+
+  const meanReturn = returns.reduce((sum, r) => sum + r, 0) / returns.length || 0
+  const stdDev = Math.sqrt(returns.reduce((sum, r) => sum + Math.pow(r - meanReturn, 2), 0) / returns.length || 0)
+  const downDev = Math.sqrt(
+    returns.filter((r) => r < 0).reduce((sum, r) => sum + Math.pow(r, 2), 0) / returns.length || 0,
+  )
+
+  const sharpeRatio = stdDev === 0 ? 0 : meanReturn / stdDev
+  const sortinoRatio = downDev === 0 ? 0 : meanReturn / downDev
+
+  // Calculate real minimum account required
+  const realMinimumAccountReq = maxDrawdown * 2
 
   return {
     totalNetProfit,
     maxDrawdown,
     meanDrawdown,
-    netProfitMaxDD: maxDrawdown !== 0 ? totalNetProfit / maxDrawdown : Number.POSITIVE_INFINITY,
-    netProfitMeanDD: meanDrawdown !== 0 ? totalNetProfit / meanDrawdown : Number.POSITIVE_INFINITY,
+    netProfitMaxDD: maxDrawdown === 0 ? Number.POSITIVE_INFINITY : totalNetProfit / maxDrawdown,
+    netProfitMeanDD: meanDrawdown === 0 ? Number.POSITIVE_INFINITY : totalNetProfit / meanDrawdown,
     profitFactor,
     winRatioPercentage,
     riskRewardRatio,
     totalTrades: trades.length,
-    averageTradeProfit,
+    averageTradeProfit: totalNetProfit / trades.length || 0,
     maxConsecutiveWinningTrades,
     maxConsecutiveLosingTrades,
     tradesPerMonth,
@@ -657,29 +645,13 @@ function calculateStatistics(trades: Trade[], equity: number[], drawdowns: numbe
   }
 }
 
-// Calculate max consecutive true values
-function calculateMaxConsecutive(boolArray: boolean[]): number {
-  let maxConsecutive = 0
-  let currentConsecutive = 0
-
-  for (const value of boolArray) {
-    if (value) {
-      currentConsecutive++
-      maxConsecutive = Math.max(maxConsecutive, currentConsecutive)
-    } else {
-      currentConsecutive = 0
-    }
-  }
-
-  return maxConsecutive
-}
-
-// Calculate monthly returns
-function calculateMonthlyReturns(trades: Trade[]): MonthlyReturns {
-  const monthlyReturns: MonthlyReturns = {}
+// Helper function to calculate monthly returns
+function calculateMonthlyReturns(trades: Trade[]): Record<string, number> {
+  const monthlyReturns: Record<string, number> = {}
 
   for (const trade of trades) {
-    const yearMonth = `${trade.exitTime.getFullYear()}-${String(trade.exitTime.getMonth() + 1).padStart(2, "0")}`
+    const date = trade.exitTime
+    const yearMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`
 
     if (!monthlyReturns[yearMonth]) {
       monthlyReturns[yearMonth] = 0
@@ -691,12 +663,13 @@ function calculateMonthlyReturns(trades: Trade[]): MonthlyReturns {
   return monthlyReturns
 }
 
-// Calculate daily returns
-function calculateDailyReturns(trades: Trade[]): DailyReturns {
-  const dailyReturns: DailyReturns = {}
+// Helper function to calculate daily returns
+function calculateDailyReturns(trades: Trade[]): Record<string, number> {
+  const dailyReturns: Record<string, number> = {}
 
   for (const trade of trades) {
-    const day = trade.exitTime.toISOString().split("T")[0]
+    const date = trade.exitTime
+    const day = date.toISOString().split("T")[0]
 
     if (!dailyReturns[day]) {
       dailyReturns[day] = 0
@@ -708,78 +681,171 @@ function calculateDailyReturns(trades: Trade[]): DailyReturns {
   return dailyReturns
 }
 
-// Calculate strategy correlation
-function calculateStrategyCorrelation(dfsEquityStrategies: any[], portfolioTrades: Trade[]): number[][] {
-  // This is a simplified implementation - in a real app, you would implement
-  // the correlation calculation from the original Python script
-
+// Helper function to calculate strategy correlation
+function calculateStrategyCorrelation(
+  dfsEquityStrategies: Array<{ exitTime: Date[]; equity: number[] }>,
+  portfolioTrades: Trade[],
+): number[][] {
   const numStrategies = dfsEquityStrategies.length
-  const correlationMatrix: number[][] = []
+  const correlationMatrix: number[][] = Array(numStrategies)
+    .fill(0)
+    .map(() => Array(numStrategies).fill(0))
 
-  // Create an identity matrix as a placeholder
+  // Fill diagonal with 1s (self-correlation)
   for (let i = 0; i < numStrategies; i++) {
-    correlationMatrix.push([])
-    for (let j = 0; j < numStrategies; j++) {
-      correlationMatrix[i].push(i === j ? 1 : 0.5 - Math.random() * 0.5)
+    correlationMatrix[i][i] = 1
+  }
+
+  // Calculate correlation between each pair of strategies
+  for (let i = 0; i < numStrategies; i++) {
+    for (let j = i + 1; j < numStrategies; j++) {
+      const strategy1 = dfsEquityStrategies[i]
+      const strategy2 = dfsEquityStrategies[j]
+
+      // Calculate returns for both strategies
+      const returns1: number[] = []
+      const returns2: number[] = []
+
+      for (let k = 1; k < strategy1.equity.length; k++) {
+        returns1.push(strategy1.equity[k] - strategy1.equity[k - 1])
+      }
+
+      for (let k = 1; k < strategy2.equity.length; k++) {
+        returns2.push(strategy2.equity[k] - strategy2.equity[k - 1])
+      }
+
+      // Calculate correlation if we have enough data
+      if (returns1.length > 1 && returns2.length > 1) {
+        const correlation = calculateCorrelation(returns1, returns2)
+        correlationMatrix[i][j] = correlation
+        correlationMatrix[j][i] = correlation // Matrix is symmetric
+      }
     }
   }
 
   return correlationMatrix
 }
 
-// Calculate strategy margins - UPDATED to use the API
-async function calculateStrategyMargins(strategies: Strategy[]): Promise<number[]> {
-  // Ottieni i margini aggiornati
-  const margins = await getMargins()
+// Helper function to calculate correlation between two arrays
+function calculateCorrelation(x: number[], y: number[]): number {
+  // Use a simple approach for correlation calculation
+  const n = Math.min(x.length, y.length)
+  if (n <= 1) return 0
 
-  return strategies.map((strategy) => {
-    const margin = margins[strategy.symbol] || 5000 // Default margin if symbol not found
-    return margin * strategy.quantity
-  })
+  // Calculate means
+  const meanX = x.reduce((sum, val) => sum + val, 0) / n
+  const meanY = y.reduce((sum, val) => sum + val, 0) / n
+
+  // Calculate covariance and variances
+  let covariance = 0
+  let varX = 0
+  let varY = 0
+
+  for (let i = 0; i < n; i++) {
+    const diffX = x[i] - meanX
+    const diffY = y[i] - meanY
+    covariance += diffX * diffY
+    varX += diffX * diffX
+    varY += diffY * diffY
+  }
+
+  // Calculate correlation
+  if (varX === 0 || varY === 0) return 0
+  return covariance / (Math.sqrt(varX) * Math.sqrt(varY))
 }
 
-// Calculate used margin - UPDATED to be async
+// Helper function to calculate strategy margins
+async function calculateStrategyMargins(strategies: Strategy[]): Promise<number[]> {
+  try {
+    // Get margins from API or cache
+    const margins = await getMargins()
+
+    // Calculate margin for each strategy
+    return strategies.map((strategy) => {
+      const symbol = strategy.symbol.toUpperCase()
+      const marginPerContract = margins[symbol] || 0
+      return marginPerContract * strategy.quantity
+    })
+  } catch (error) {
+    console.error("Error calculating strategy margins:", error)
+    // Return default margins in case of error
+    return strategies.map(() => 5000) // Default margin of $5000 per strategy
+  }
+}
+
+// Helper function to calculate used margin over time
 async function calculateUsedMargin(
   strategies: Strategy[],
   portfolioTrades: Trade[],
   strategyMargins: number[],
 ): Promise<UsedMargin[]> {
-  // This is a simplified implementation - in a real app, you would implement
-  // the margin calculation from the original Python script
-
-  // Find the date range
-  const startDate = new Date(Math.min(...portfolioTrades.map((t) => t.openTime.getTime())))
-  const endDate = new Date(Math.max(...portfolioTrades.map((t) => t.exitTime.getTime())))
-
-  // Create a series of dates (hourly intervals)
-  const dates: Date[] = []
-  const currentDate = new Date(startDate)
-
-  while (currentDate <= endDate) {
-    dates.push(new Date(currentDate))
-    currentDate.setHours(currentDate.getHours() + 1)
-  }
-
-  // Calculate used margin for each date
-  return dates.map((date) => {
-    const strategyMarginsUsed: { [strategyName: string]: number } = {}
-    let totalMargin = 0
-
-    strategies.forEach((strategy, i) => {
-      // Check if there are open trades for this strategy on this date
-      const openTrades = strategy.trades.filter((t) => t.openTime <= date && date <= t.exitTime)
-
-      const marginUsed = openTrades.length > 0 ? strategyMargins[i] : 0
-      strategyMarginsUsed[strategy.name] = marginUsed
-      totalMargin += marginUsed
-    })
-
-    return {
-      date,
-      totalMargin,
-      strategyMargins: strategyMarginsUsed,
+  try {
+    if (portfolioTrades.length === 0) {
+      return []
     }
-  })
+
+    // Get the date range from the portfolio trades
+    const startDate = new Date(Math.min(...portfolioTrades.map((t) => t.openTime.getTime())))
+    const endDate = new Date(Math.max(...portfolioTrades.map((t) => t.exitTime.getTime())))
+
+    // Generate dates at daily intervals (instead of hourly)
+    // This reduces the number of dates by 24x
+    const dates: Date[] = []
+    const currentDate = new Date(startDate)
+
+    // Limit the number of dates to prevent stack overflow
+    const maxDates = 1000
+    let dateCount = 0
+
+    while (currentDate <= endDate && dateCount < maxDates) {
+      dates.push(new Date(currentDate))
+      currentDate.setDate(currentDate.getDate() + 1) // Move to next day
+      dateCount++
+    }
+
+    // If we have too many dates, sample them
+    let sampledDates = dates
+    if (dates.length > maxDates) {
+      const sampleInterval = Math.ceil(dates.length / maxDates)
+      sampledDates = dates.filter((_, i) => i % sampleInterval === 0)
+      console.log(`Sampled ${sampledDates.length} dates from ${dates.length} total dates`)
+    }
+
+    // Calculate used margin for each date
+    const usedMargins: UsedMargin[] = []
+
+    for (const date of sampledDates) {
+      const strategyMarginsUsed: Record<string, number> = {}
+      let totalMargin = 0
+
+      // Check each strategy
+      for (let i = 0; i < strategies.length; i++) {
+        const strategy = strategies[i]
+        const margin = strategyMargins[i]
+
+        // Check if the strategy has an open position on this date
+        const hasOpenPosition = strategy.trades.some((trade) => trade.openTime <= date && trade.exitTime >= date)
+
+        if (hasOpenPosition) {
+          strategyMarginsUsed[strategy.name] = margin
+          totalMargin += margin
+        } else {
+          strategyMarginsUsed[strategy.name] = 0
+        }
+      }
+
+      usedMargins.push({
+        date,
+        totalMargin,
+        strategyMargins: strategyMarginsUsed,
+      })
+    }
+
+    return usedMargins
+  } catch (error) {
+    console.error("Error calculating used margin:", error)
+    return []
+  }
 }
 
 // Helper function to sum an array of numbers
@@ -789,6 +855,7 @@ function sum(numbers: number[]): number {
 
 // Helper function to count occurrences of the maximum value
 function countMaxOccurrences(numbers: number[]): number {
+  if (numbers.length === 0) return 0
   const max = Math.max(...numbers)
   return numbers.filter((n) => n === max).length
 }
