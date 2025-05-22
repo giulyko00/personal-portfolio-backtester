@@ -5,14 +5,15 @@ interface MarginsCache {
   margins: Record<string, number>
   lastUpdate: string
   source: string
+  marginType: "intraday" | "overnight"
 }
 
 // Funzione per caricare i margini dalla cache
-function loadMarginsFromCache(): MarginsCache | null {
+function loadMarginsFromCache(marginType: "intraday" | "overnight" = "intraday"): MarginsCache | null {
   if (typeof window === "undefined") return null
 
   try {
-    const cached = localStorage.getItem("margins_cache")
+    const cached = localStorage.getItem(`margins_cache_${marginType}`)
     return cached ? JSON.parse(cached) : null
   } catch (error) {
     console.error("Error loading margins from cache:", error)
@@ -25,16 +26,16 @@ function saveMarginsToCache(data: MarginsCache): void {
   if (typeof window === "undefined") return
 
   try {
-    localStorage.setItem("margins_cache", JSON.stringify(data))
+    localStorage.setItem(`margins_cache_${data.marginType}`, JSON.stringify(data))
   } catch (error) {
     console.error("Error saving margins to cache:", error)
   }
 }
 
 // Funzione per ottenere i margini (da API o cache)
-async function getMargins(): Promise<Record<string, number>> {
-  // Verifica se abbiamo dati in cache recenti (ultimi 24 ore)
-  const cached = loadMarginsFromCache()
+async function getMargins(marginType: "intraday" | "overnight" = "intraday"): Promise<Record<string, number>> {
+  // Verifica se abbiamo dati in cache recenti (ultimi 24 ore) per il tipo di margine richiesto
+  const cached = loadMarginsFromCache(marginType)
   const now = new Date()
 
   if (cached) {
@@ -43,15 +44,15 @@ async function getMargins(): Promise<Record<string, number>> {
 
     // Se l'aggiornamento è recente (meno di 24 ore), usa la cache
     if (hoursSinceUpdate < 24) {
-      console.log("Using cached margins data")
+      console.log(`Using cached ${marginType} margins data`)
       return cached.margins
     }
   }
 
   // Altrimenti, chiama l'API
   try {
-    console.log("Fetching fresh margins data from API")
-    const response = await fetch("/api/margins")
+    console.log(`Fetching fresh ${marginType} margins data from API`)
+    const response = await fetch(`/api/margins?type=${marginType}`)
 
     if (!response.ok) {
       throw new Error(`API request failed with status ${response.status}`)
@@ -68,36 +69,58 @@ async function getMargins(): Promise<Record<string, number>> {
 
     // Se c'è un errore ma abbiamo dati in cache, usali comunque
     if (cached) {
-      console.warn("Using cached margins data due to API error")
+      console.warn(`Using cached ${marginType} margins data due to API error`)
       return cached.margins
     }
 
     // Altrimenti, usa i valori hardcoded
-    return getHardcodedMargins()
+    return getHardcodedMargins(marginType)
   }
 }
 
 // Valori hardcoded come fallback finale
-function getHardcodedMargins(): Record<string, number> {
-  return {
-    CL: 5810.0,
-    ES: 16563.0,
-    FDXM: 7573.0,
-    FESX: 3579.0,
-    GC: 12650.0,
-    MCL: 583.0,
-    MES: 1656.0,
-    MGC: 1265.0,
-    MNQ: 2513.0,
-    NQ: 25135.0,
-    RB: 6481.0,
-    ZS: 2200.0,
-    ZW: 1925.0,
+function getHardcodedMargins(marginType: "intraday" | "overnight" = "intraday"): Record<string, number> {
+  if (marginType === "intraday") {
+    return {
+      CL: 2905.0,
+      ES: 8281.0,
+      FDXM: 3786.0,
+      FESX: 1789.0,
+      GC: 6325.0,
+      MCL: 291.0,
+      MES: 828.0,
+      MGC: 632.0,
+      MNQ: 1256.0,
+      NQ: 12567.0,
+      RB: 3240.0,
+      ZS: 1100.0,
+      ZW: 962.0,
+    }
+  } else {
+    return {
+      CL: 5810.0,
+      ES: 16563.0,
+      FDXM: 7573.0,
+      FESX: 3579.0,
+      GC: 12650.0,
+      MCL: 583.0,
+      MES: 1656.0,
+      MGC: 1265.0,
+      MNQ: 2513.0,
+      NQ: 25135.0,
+      RB: 6481.0,
+      ZS: 2200.0,
+      ZW: 1925.0,
+    }
   }
 }
 
 // Function to parse CSV data from TradeStation format
-export async function processTradeStationCSV(files: File[], quantities: number[]): Promise<PortfolioData> {
+export async function processTradeStationCSV(
+  files: File[],
+  quantities: number[],
+  marginType: "intraday" | "overnight" = "intraday",
+): Promise<PortfolioData> {
   try {
     // This is a simplified implementation - in a real app, you would parse the CSV files
     // and perform all the calculations from the original Python script
@@ -169,7 +192,7 @@ export async function processTradeStationCSV(files: File[], quantities: number[]
     const correlationMatrix = calculateStrategyCorrelation(dfsEquityStrategies, portfolioTrades)
 
     // Calculate margins
-    const strategyMargins = await calculateStrategyMargins(strategies)
+    const strategyMargins = await calculateStrategyMargins(strategies, marginType)
     const usedMargins = await calculateUsedMargin(strategies, portfolioTrades, strategyMargins)
 
     // Calculate margin statistics
@@ -205,7 +228,11 @@ export async function processTradeStationCSV(files: File[], quantities: number[]
 }
 
 // Function to parse CSV data from MultiCharts format
-export async function processMultiChartsCSV(files: File[], quantities: number[]): Promise<PortfolioData> {
+export async function processMultiChartsCSV(
+  files: File[],
+  quantities: number[],
+  marginType: "intraday" | "overnight" = "intraday",
+): Promise<PortfolioData> {
   try {
     const strategies: Strategy[] = []
     const portfolioTrades: Trade[] = []
@@ -262,7 +289,7 @@ export async function processMultiChartsCSV(files: File[], quantities: number[])
       equity: s.equity,
     }))
     const correlationMatrix = calculateStrategyCorrelation(dfsEquityStrategies, portfolioTrades)
-    const strategyMargins = await calculateStrategyMargins(strategies)
+    const strategyMargins = await calculateStrategyMargins(strategies, marginType)
     const usedMargins = await calculateUsedMargin(strategies, portfolioTrades, strategyMargins)
     const margins = {
       strategyMargins,
@@ -295,7 +322,11 @@ export async function processMultiChartsCSV(files: File[], quantities: number[])
 }
 
 // Function to parse CSV data from NinjaTrader format
-export async function processNinjaTraderCSV(files: File[], quantities: number[]): Promise<PortfolioData> {
+export async function processNinjaTraderCSV(
+  files: File[],
+  quantities: number[],
+  marginType: "intraday" | "overnight" = "intraday",
+): Promise<PortfolioData> {
   try {
     const strategies: Strategy[] = []
     const portfolioTrades: Trade[] = []
@@ -352,7 +383,7 @@ export async function processNinjaTraderCSV(files: File[], quantities: number[])
       equity: s.equity,
     }))
     const correlationMatrix = calculateStrategyCorrelation(dfsEquityStrategies, portfolioTrades)
-    const strategyMargins = await calculateStrategyMargins(strategies)
+    const strategyMargins = await calculateStrategyMargins(strategies, marginType)
     const usedMargins = await calculateUsedMargin(strategies, portfolioTrades, strategyMargins)
     const margins = {
       strategyMargins,
@@ -754,25 +785,6 @@ function calculateCorrelation(x: number[], y: number[]): number {
   return covariance / (Math.sqrt(varX) * Math.sqrt(varY))
 }
 
-// Helper function to calculate strategy margins
-async function calculateStrategyMargins(strategies: Strategy[]): Promise<number[]> {
-  try {
-    // Get margins from API or cache
-    const margins = await getMargins()
-
-    // Calculate margin for each strategy
-    return strategies.map((strategy) => {
-      const symbol = strategy.symbol.toUpperCase()
-      const marginPerContract = margins[symbol] || 0
-      return marginPerContract * strategy.quantity
-    })
-  } catch (error) {
-    console.error("Error calculating strategy margins:", error)
-    // Return default margins in case of error
-    return strategies.map(() => 5000) // Default margin of $5000 per strategy
-  }
-}
-
 // Helper function to calculate used margin over time
 async function calculateUsedMargin(
   strategies: Strategy[],
@@ -858,4 +870,26 @@ function countMaxOccurrences(numbers: number[]): number {
   if (numbers.length === 0) return 0
   const max = Math.max(...numbers)
   return numbers.filter((n) => n === max).length
+}
+
+// Helper function to calculate strategy margins
+async function calculateStrategyMargins(
+  strategies: Strategy[],
+  marginType: "intraday" | "overnight" = "intraday",
+): Promise<number[]> {
+  try {
+    // Get margins from API or cache
+    const margins = await getMargins(marginType)
+
+    // Calculate margin for each strategy
+    return strategies.map((strategy) => {
+      const symbol = strategy.symbol.toUpperCase()
+      const marginPerContract = margins[symbol] || 0
+      return marginPerContract * strategy.quantity
+    })
+  } catch (error) {
+    console.error("Error calculating strategy margins:", error)
+    // Return default margins in case of error
+    return strategies.map(() => (marginType === "intraday" ? 2500 : 5000)) // Default margin based on type
+  }
 }

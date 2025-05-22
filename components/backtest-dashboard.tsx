@@ -10,6 +10,8 @@ import { SingleStrategiesTab } from "@/components/tabs/single-strategies-tab"
 import type { PortfolioData } from "@/types/portfolio"
 import { processTradeStationCSV, processMultiChartsCSV, processNinjaTraderCSV } from "@/lib/data-processors"
 import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
 import { RefreshCw } from "lucide-react"
 import { AlertCircle } from "lucide-react"
 
@@ -18,6 +20,7 @@ export function BacktestDashboard() {
   const [portfolioData, setPortfolioData] = useState<PortfolioData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [marginType, setMarginType] = useState<"intraday" | "overnight">("intraday")
   const [dateRange, setDateRange] = useState({
     startDate: "2008-01-01",
     endDate: "2099-01-01",
@@ -33,16 +36,16 @@ export function BacktestDashboard() {
 
       switch (format) {
         case "tradestation":
-          processedData = await processTradeStationCSV(files, quantities)
+          processedData = await processTradeStationCSV(files, quantities, marginType)
           break
         case "multicharts":
-          processedData = await processMultiChartsCSV(files, quantities)
+          processedData = await processMultiChartsCSV(files, quantities, marginType)
           break
         case "ninjatrader":
-          processedData = await processNinjaTraderCSV(files, quantities)
+          processedData = await processNinjaTraderCSV(files, quantities, marginType)
           break
         default:
-          processedData = await processTradeStationCSV(files, quantities)
+          processedData = await processTradeStationCSV(files, quantities, marginType)
       }
 
       setPortfolioData(processedData)
@@ -71,6 +74,30 @@ export function BacktestDashboard() {
     setActiveTab("equity-curve")
   }
 
+  const handleMarginTypeChange = (checked: boolean) => {
+    const newMarginType = checked ? "overnight" : "intraday"
+    setMarginType(newMarginType)
+
+    // Se abbiamo già dei dati, ricalcoliamo con il nuovo tipo di margine
+    if (portfolioData && portfolioData.strategies.length > 0) {
+      setIsLoading(true)
+      setError(null)
+
+      // Riutilizziamo gli stessi file e quantità
+      const format = "tradestation" // Assumiamo un formato di default
+      const files = [] as File[] // Non abbiamo più i file originali
+      const quantities = portfolioData.strategies.map((s) => s.quantity)
+
+      // Questo è un workaround, in un'app reale dovresti salvare i file originali
+      // o implementare un modo per ricalcolare i margini senza riprocessare tutto
+      setTimeout(() => {
+        setIsLoading(false)
+        // Mostra un messaggio che indica che è necessario ricaricare i file
+        setError("Per applicare il nuovo tipo di margine, carica nuovamente i file.")
+      }, 500)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {error && (
@@ -88,7 +115,15 @@ export function BacktestDashboard() {
       )}
 
       {!portfolioData ? (
-        <FileUploader onFilesUploaded={handleFilesUploaded} isLoading={isLoading} />
+        <>
+          <div className="flex items-center justify-end mb-4 space-x-2">
+            <Label htmlFor="margin-type" className="text-sm font-medium">
+              {marginType === "intraday" ? "Intraday Margins" : "Overnight Margins"}
+            </Label>
+            <Switch id="margin-type" checked={marginType === "overnight"} onCheckedChange={handleMarginTypeChange} />
+          </div>
+          <FileUploader onFilesUploaded={handleFilesUploaded} isLoading={isLoading} />
+        </>
       ) : (
         <>
           <div className="flex justify-between items-center">
@@ -97,10 +132,22 @@ export function BacktestDashboard() {
               endDate={dateRange.endDate}
               onApplyFilter={handleDateRangeChange}
             />
-            <Button variant="outline" className="flex items-center gap-2" onClick={handleReset}>
-              <RefreshCw className="h-4 w-4" />
-              Reset Analysis
-            </Button>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <Label htmlFor="margin-type-switch" className="text-sm font-medium">
+                  {marginType === "intraday" ? "Intraday Margins" : "Overnight Margins"}
+                </Label>
+                <Switch
+                  id="margin-type-switch"
+                  checked={marginType === "overnight"}
+                  onCheckedChange={handleMarginTypeChange}
+                />
+              </div>
+              <Button variant="outline" className="flex items-center gap-2" onClick={handleReset}>
+                <RefreshCw className="h-4 w-4" />
+                Reset Analysis
+              </Button>
+            </div>
           </div>
 
           <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
