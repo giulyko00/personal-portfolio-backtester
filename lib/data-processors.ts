@@ -1,4 +1,100 @@
-import type { PortfolioData, Trade, Strategy, MonthlyReturns, DailyReturns } from "@/types/portfolio"
+import type { PortfolioData, Trade, Strategy, MonthlyReturns, DailyReturns, UsedMargin } from "@/types/portfolio"
+
+// Interfaccia per la cache dei margini
+interface MarginsCache {
+  margins: Record<string, number>
+  lastUpdate: string
+  source: string
+}
+
+// Funzione per caricare i margini dalla cache
+function loadMarginsFromCache(): MarginsCache | null {
+  if (typeof window === "undefined") return null
+
+  try {
+    const cached = localStorage.getItem("margins_cache")
+    return cached ? JSON.parse(cached) : null
+  } catch (error) {
+    console.error("Error loading margins from cache:", error)
+    return null
+  }
+}
+
+// Funzione per salvare i margini nella cache
+function saveMarginsToCache(data: MarginsCache): void {
+  if (typeof window === "undefined") return
+
+  try {
+    localStorage.setItem("margins_cache", JSON.stringify(data))
+  } catch (error) {
+    console.error("Error saving margins to cache:", error)
+  }
+}
+
+// Funzione per ottenere i margini (da API o cache)
+async function getMargins(): Promise<Record<string, number>> {
+  // Verifica se abbiamo dati in cache recenti (ultimi 24 ore)
+  const cached = loadMarginsFromCache()
+  const now = new Date()
+
+  if (cached) {
+    const lastUpdate = new Date(cached.lastUpdate)
+    const hoursSinceUpdate = (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60)
+
+    // Se l'aggiornamento è recente (meno di 24 ore), usa la cache
+    if (hoursSinceUpdate < 24) {
+      console.log("Using cached margins data")
+      return cached.margins
+    }
+  }
+
+  // Altrimenti, chiama l'API
+  try {
+    console.log("Fetching fresh margins data from API")
+    const response = await fetch("/api/margins")
+
+    if (!response.ok) {
+      throw new Error(`API request failed with status ${response.status}`)
+    }
+
+    const data: MarginsCache = await response.json()
+
+    // Salva i nuovi dati nella cache
+    saveMarginsToCache(data)
+
+    return data.margins
+  } catch (error) {
+    console.error("Error fetching margins:", error)
+
+    // Se c'è un errore ma abbiamo dati in cache, usali comunque
+    if (cached) {
+      console.warn("Using cached margins data due to API error")
+      return cached.margins
+    }
+
+    // Altrimenti, usa i valori hardcoded
+    return getHardcodedMargins()
+  }
+}
+
+// Valori hardcoded come fallback finale
+function getHardcodedMargins(): Record<string, number> {
+  return {
+    CL: 5810.0,
+    ES: 16563.0,
+    FDXM: 7573.0,
+    FESX: 3579.0,
+    GC: 12650.0,
+    MCL: 583.0,
+    MES: 1656.0,
+    MGC: 1265.0,
+    MNQ: 2513.0,
+    NQ: 25135.0,
+    RB: 6481.0,
+    ZS: 2200.0,
+    ZW: 1925.0,
+  }
+}
 
 // Function to parse CSV data from TradeStation format
 export async function processTradeStationCSV(files: File[], quantities: number[]): Promise<PortfolioData> {
@@ -61,8 +157,8 @@ export async function processTradeStationCSV(files: File[], quantities: number[]
   const correlationMatrix = calculateStrategyCorrelation(dfsEquityStrategies, portfolioTrades)
 
   // Calculate margins
-  const strategyMargins = calculateStrategyMargins(strategies)
-  const usedMargins = calculateUsedMargin(strategies, portfolioTrades, strategyMargins)
+  const strategyMargins = await calculateStrategyMargins(strategies)
+  const usedMargins = await calculateUsedMargin(strategies, portfolioTrades, strategyMargins)
 
   // Calculate margin statistics
   const margins = {
@@ -139,8 +235,8 @@ export async function processMultiChartsCSV(files: File[], quantities: number[])
     equity: s.equity,
   }))
   const correlationMatrix = calculateStrategyCorrelation(dfsEquityStrategies, portfolioTrades)
-  const strategyMargins = calculateStrategyMargins(strategies)
-  const usedMargins = calculateUsedMargin(strategies, portfolioTrades, strategyMargins)
+  const strategyMargins = await calculateStrategyMargins(strategies)
+  const usedMargins = await calculateUsedMargin(strategies, portfolioTrades, strategyMargins)
   const margins = {
     strategyMargins,
     minimumAccountRequired: sum(strategyMargins) + statistics.maxDrawdown,
@@ -214,8 +310,8 @@ export async function processNinjaTraderCSV(files: File[], quantities: number[])
     equity: s.equity,
   }))
   const correlationMatrix = calculateStrategyCorrelation(dfsEquityStrategies, portfolioTrades)
-  const strategyMargins = calculateStrategyMargins(strategies)
-  const usedMargins = calculateUsedMargin(strategies, portfolioTrades, strategyMargins)
+  const strategyMargins = await calculateStrategyMargins(strategies)
+  const usedMargins = await calculateUsedMargin(strategies, portfolioTrades, strategyMargins)
   const margins = {
     strategyMargins,
     minimumAccountRequired: sum(strategyMargins) + statistics.maxDrawdown,
@@ -631,34 +727,23 @@ function calculateStrategyCorrelation(dfsEquityStrategies: any[], portfolioTrade
   return correlationMatrix
 }
 
-// Calculate strategy margins
-function calculateStrategyMargins(strategies: Strategy[]): number[] {
-  return strategies.map((strategy) => {
-    // This would normally call an API or use a lookup table for margin requirements
-    // For now, we'll use a simplified approach
-    const marginLookup: { [key: string]: number } = {
-      CL: 5810.0,
-      ES: 16563.0,
-      FDXM: 7573.0,
-      FESX: 3579.0,
-      GC: 12650.0,
-      MCL: 583.0,
-      MES: 1656.0,
-      MGC: 1265.0,
-      MNQ: 2513.0,
-      NQ: 25135.0,
-      RB: 6481.0,
-      ZS: 2200.0,
-      ZW: 1925.0,
-    }
+// Calculate strategy margins - UPDATED to use the API
+async function calculateStrategyMargins(strategies: Strategy[]): Promise<number[]> {
+  // Ottieni i margini aggiornati
+  const margins = await getMargins()
 
-    const margin = marginLookup[strategy.symbol] || 5000 // Default margin if symbol not found
+  return strategies.map((strategy) => {
+    const margin = margins[strategy.symbol] || 5000 // Default margin if symbol not found
     return margin * strategy.quantity
   })
 }
 
-// Calculate used margin
-function calculateUsedMargin(strategies: Strategy[], portfolioTrades: Trade[], strategyMargins: number[]): any[] {
+// Calculate used margin - UPDATED to be async
+async function calculateUsedMargin(
+  strategies: Strategy[],
+  portfolioTrades: Trade[],
+  strategyMargins: number[],
+): Promise<UsedMargin[]> {
   // This is a simplified implementation - in a real app, you would implement
   // the margin calculation from the original Python script
 
