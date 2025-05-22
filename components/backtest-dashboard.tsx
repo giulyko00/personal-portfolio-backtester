@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { FileUploader, type ImportFormat } from "@/components/file-uploader"
 import { DateRangeFilter } from "@/components/date-range-filter"
 import { TabNavigation } from "@/components/tab-navigation"
@@ -10,59 +10,19 @@ import { SingleStrategiesTab } from "@/components/tabs/single-strategies-tab"
 import type { PortfolioData } from "@/types/portfolio"
 import { Button } from "@/components/ui/button"
 import { RefreshCw } from "lucide-react"
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert"
-
-// URL del backend
-const API_URL = "http://localhost:5000"
 
 export function BacktestDashboard() {
   const [activeTab, setActiveTab] = useState("equity-curve")
   const [portfolioData, setPortfolioData] = useState<PortfolioData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [backendStatus, setBackendStatus] = useState<"checking" | "online" | "offline">("checking")
   const [dateRange, setDateRange] = useState({
     startDate: "2008-01-01",
     endDate: "2099-01-01",
   })
 
-  // Verifica che il backend sia in esecuzione all'avvio del componente
-  useEffect(() => {
-    const checkBackendStatus = async () => {
-      try {
-        const response = await fetch(`${API_URL}/api/test`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        })
-
-        if (response.ok) {
-          setBackendStatus("online")
-        } else {
-          setBackendStatus("offline")
-        }
-      } catch (error) {
-        console.error("Errore durante la verifica dello stato del backend:", error)
-        setBackendStatus("offline")
-      }
-    }
-
-    checkBackendStatus()
-  }, [])
-
   const handleFilesUploaded = async (files: File[], quantities: number[], format: ImportFormat) => {
     setIsLoading(true)
-    setError(null)
-
     try {
-      // Verifica che il backend sia in esecuzione
-      if (backendStatus === "offline") {
-        throw new Error(
-          "Il backend Python non è in esecuzione. Avvia il server Python con 'python app.py' nella cartella backend.",
-        )
-      }
-
       // Crea un FormData per inviare i file al backend Python
       const formData = new FormData()
 
@@ -76,14 +36,13 @@ export function BacktestDashboard() {
       formData.append("format", format)
 
       // Invia la richiesta al backend Python
-      const response = await fetch(`${API_URL}/api/process`, {
+      const response = await fetch("http://localhost:5000/api/process", {
         method: "POST",
         body: formData,
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || `Errore HTTP: ${response.status}`)
+        throw new Error(`Errore HTTP: ${response.status}`)
       }
 
       // Analizza la risposta JSON
@@ -95,7 +54,7 @@ export function BacktestDashboard() {
       setPortfolioData(convertedData)
     } catch (error) {
       console.error(`Errore nell'elaborazione dei file ${format}:`, error)
-      setError(error instanceof Error ? error.message : "Errore sconosciuto")
+      alert(`Errore nell'elaborazione dei file ${format}. Controlla la console per i dettagli.`)
     } finally {
       setIsLoading(false)
     }
@@ -140,7 +99,7 @@ export function BacktestDashboard() {
     return data as PortfolioData
   }
 
-  const handleDateRangeChange = async (startDate: string, endDate: string, filteredData: PortfolioData) => {
+  const handleDateRangeChange = (startDate: string, endDate: string, filteredData: PortfolioData) => {
     setDateRange({ startDate, endDate })
     setPortfolioData(filteredData)
   }
@@ -148,7 +107,6 @@ export function BacktestDashboard() {
   const handleReset = () => {
     setPortfolioData(null)
     setActiveTab("equity-curve")
-    setError(null)
     setDateRange({
       startDate: "2008-01-01",
       endDate: "2099-01-01",
@@ -157,28 +115,8 @@ export function BacktestDashboard() {
 
   return (
     <div className="space-y-6">
-      {backendStatus === "offline" && (
-        <Alert variant="destructive">
-          <AlertTitle>Backend non disponibile</AlertTitle>
-          <AlertDescription>
-            Il backend Python non è in esecuzione. Avvia il server Python con 'python app.py' nella cartella backend.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {error && (
-        <Alert variant="destructive">
-          <AlertTitle>Errore</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
       {!portfolioData ? (
-        <FileUploader
-          onFilesUploaded={handleFilesUploaded}
-          isLoading={isLoading}
-          disabled={backendStatus === "offline"}
-        />
+        <FileUploader onFilesUploaded={handleFilesUploaded} isLoading={isLoading} />
       ) : (
         <>
           <div className="flex justify-between items-center">
