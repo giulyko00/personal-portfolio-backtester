@@ -17,23 +17,29 @@ export function createEquityCurveChart(
   const canvas = document.createElement("canvas")
   container.appendChild(canvas)
 
-  // Prepare data for equity curve
-  const labels = portfolioData.portfolioTrades.map((_, index) => index + 1)
+  // Prepare data for equity curve with time-based x-axis
+  const labels = portfolioData.portfolioTrades.map((trade) => trade.exitTime)
 
   const datasets = [
     {
       label: "Portfolio Equity",
-      data: portfolioData.portfolioEquity,
-      borderColor: "rgba(75, 192, 192, 1)",
-      backgroundColor: "rgba(75, 192, 192, 0.2)",
-      borderWidth: 2,
+      data: portfolioData.portfolioEquity.map((equity, index) => ({
+        x: portfolioData.portfolioTrades[index]?.exitTime,
+        y: equity,
+      })),
+      borderColor: "rgba(0, 0, 0, 1)", // Black color for portfolio equity
+      backgroundColor: "rgba(0, 0, 0, 0.1)",
+      borderWidth: 3,
       fill: false,
       tension: 0.1,
       pointRadius: 0,
     },
     ...portfolioData.strategies.map((strategy, index) => ({
       label: strategy.name,
-      data: strategy.equity,
+      data: strategy.equity.map((equity, tradeIndex) => ({
+        x: strategy.trades[tradeIndex]?.exitTime,
+        y: equity,
+      })),
       borderColor: `hsl(${(index * 360) / portfolioData.strategies.length}, 70%, 50%)`,
       backgroundColor: `hsla(${(index * 360) / portfolioData.strategies.length}, 70%, 50%, 0.1)`,
       borderWidth: 1,
@@ -45,7 +51,7 @@ export function createEquityCurveChart(
 
   new Chart(canvas, {
     type: "line",
-    data: { labels, datasets },
+    data: { datasets },
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -65,7 +71,14 @@ export function createEquityCurveChart(
       },
       scales: {
         x: {
-          title: { display: true, text: "Trade Number" },
+          type: "time",
+          time: {
+            unit: "day",
+            displayFormats: {
+              day: "MMM dd",
+            },
+          },
+          title: { display: true, text: "Date" },
         },
         y: {
           title: { display: true, text: `Equity (${currency})` },
