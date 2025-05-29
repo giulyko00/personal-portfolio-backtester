@@ -444,7 +444,7 @@ export function createSingleStrategyCharts(
 
   portfolioData.strategies.forEach((strategy, index) => {
     const chartContainer = document.createElement("div")
-    chartContainer.className = "h-64"
+    chartContainer.className = "h-96"
 
     const canvas = document.createElement("canvas")
     chartContainer.appendChild(canvas)
