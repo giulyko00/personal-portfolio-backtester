@@ -20,6 +20,7 @@ export default function Home() {
               Simulazione di eliminazione del 5% (o altro numero) dei best trades
               come stress/robustness test
             </li>
+            <li>Aggiungere simulazione Monte Carlo (?)</li>
             <li>
               Algoritmo di ottimizzazione portafoglio in base alle strategie inserite,
               variando i pesi e massimizzando una metrica, mirando a un max drawdown percentuale
