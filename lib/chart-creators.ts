@@ -22,7 +22,11 @@ const STRATEGY_COLORS = [
   "rgb(0, 0, 139)",
 ]
 
-export function createEquityCurveChart(container: HTMLElement, portfolioData: PortfolioData): void {
+export function createEquityCurveChart(
+  container: HTMLElement,
+  portfolioData: PortfolioData,
+  currency: "USD" | "EUR" = "USD",
+): void {
   const { portfolioTrades, portfolioEquity, strategies } = portfolioData
 
   // Clear any existing chart
@@ -88,7 +92,7 @@ export function createEquityCurveChart(container: HTMLElement, portfolioData: Po
           mode: "index",
           intersect: false,
           callbacks: {
-            label: (context) => `${context.dataset.label}: ${formatCurrency(context.parsed.y)}`,
+            label: (context) => `${context.dataset.label}: ${formatCurrency(context.parsed.y, currency)}`,
           },
         },
         legend: {
@@ -110,10 +114,10 @@ export function createEquityCurveChart(container: HTMLElement, portfolioData: Po
         y: {
           title: {
             display: true,
-            text: "Equity ($)",
+            text: `Equity (${currency})`,
           },
           ticks: {
-            callback: (value) => formatCurrency(value as number),
+            callback: (value) => formatCurrency(value as number, currency),
           },
         },
       },
@@ -127,7 +131,11 @@ export function createEquityCurveChart(container: HTMLElement, portfolioData: Po
 }
 
 // Modifica la funzione createDrawdownChart per utilizzare un grafico a linee invece di barre
-export function createDrawdownChart(container: HTMLElement, portfolioData: PortfolioData): void {
+export function createDrawdownChart(
+  container: HTMLElement,
+  portfolioData: PortfolioData,
+  currency: "USD" | "EUR" = "USD",
+): void {
   const { portfolioTrades, drawdowns } = portfolioData
 
   // Clear any existing chart
@@ -172,7 +180,7 @@ export function createDrawdownChart(container: HTMLElement, portfolioData: Portf
           mode: "index",
           intersect: false,
           callbacks: {
-            label: (context) => `Drawdown: ${formatCurrency(context.parsed.y)}`,
+            label: (context) => `Drawdown: ${formatCurrency(context.parsed.y, currency)}`,
           },
         },
         legend: {
@@ -194,10 +202,10 @@ export function createDrawdownChart(container: HTMLElement, portfolioData: Portf
         y: {
           title: {
             display: true,
-            text: "Drawdown ($)",
+            text: `Drawdown (${currency})`,
           },
           ticks: {
-            callback: (value) => formatCurrency(value as number),
+            callback: (value) => formatCurrency(value as number, currency),
           },
         },
       },
@@ -210,7 +218,11 @@ export function createDrawdownChart(container: HTMLElement, portfolioData: Portf
   })
 }
 
-export function createMonthlyReturnsTable(container: HTMLElement, portfolioData: PortfolioData): void {
+export function createMonthlyReturnsTable(
+  container: HTMLElement,
+  portfolioData: PortfolioData,
+  currency: "USD" | "EUR" = "USD",
+): void {
   const { monthlyReturns } = portfolioData
 
   // Group returns by year and month
@@ -271,7 +283,7 @@ export function createMonthlyReturnsTable(container: HTMLElement, portfolioData:
 
       tableHtml += `
         <td class="px-2 py-2 text-right ${cellClass}">
-          ${value ? formatCurrency(value) : ""}
+          ${value ? formatCurrency(value, currency) : ""}
         </td>
       `
     }
@@ -286,7 +298,7 @@ export function createMonthlyReturnsTable(container: HTMLElement, portfolioData:
 
     tableHtml += `
       <td class="px-2 py-2 text-right ${totalCellClass}">
-        ${formatCurrency(yearTotal)}
+        ${formatCurrency(yearTotal, currency)}
       </td>
     </tr>
     `
@@ -366,7 +378,11 @@ export function createCorrelationMatrix(container: HTMLElement, portfolioData: P
   container.innerHTML = matrixHtml
 }
 
-export function createReturnsDistributionChart(container: HTMLElement, portfolioData: PortfolioData): void {
+export function createReturnsDistributionChart(
+  container: HTMLElement,
+  portfolioData: PortfolioData,
+  currency: "USD" | "EUR" = "USD",
+): void {
   const { monthlyReturns } = portfolioData
   const returns = Object.values(monthlyReturns)
 
@@ -419,7 +435,9 @@ export function createReturnsDistributionChart(container: HTMLElement, portfolio
   new Chart(canvas, {
     type: "bar",
     data: {
-      labels: bins.slice(0, -1).map((bin, i) => `${formatCurrency(bin)} - ${formatCurrency(bins[i + 1])}`),
+      labels: bins
+        .slice(0, -1)
+        .map((bin, i) => `${formatCurrency(bin, currency)} - ${formatCurrency(bins[i + 1], currency)}`),
       datasets: [
         {
           label: "Monthly Returns Distribution",
@@ -468,14 +486,14 @@ export function createReturnsDistributionChart(container: HTMLElement, portfolio
         x: {
           title: {
             display: true,
-            text: "Monthly Return ($)",
+            text: `Monthly Return (${currency})`,
           },
           ticks: {
             maxRotation: 90,
             minRotation: 45,
             callback: (value, index) => {
               // Show fewer labels for readability
-              return index % 4 === 0 ? formatCurrency(bins[index as number]) : ""
+              return index % 4 === 0 ? formatCurrency(bins[index as number], currency) : ""
             },
           },
         },
@@ -490,7 +508,11 @@ export function createReturnsDistributionChart(container: HTMLElement, portfolio
   })
 }
 
-export function createUsedMarginsChart(container: HTMLElement, portfolioData: PortfolioData): void {
+export function createUsedMarginsChart(
+  container: HTMLElement,
+  portfolioData: PortfolioData,
+  currency: "USD" | "EUR" = "USD",
+): void {
   const { usedMargins, margins } = portfolioData
 
   // Clear any existing chart
@@ -548,7 +570,7 @@ export function createUsedMarginsChart(container: HTMLElement, portfolioData: Po
           mode: "index",
           intersect: false,
           callbacks: {
-            label: (context) => `${context.dataset.label}: ${formatCurrency(context.parsed.y)}`,
+            label: (context) => `${context.dataset.label}: ${formatCurrency(context.parsed.y, currency)}`,
           },
         },
       },
@@ -567,10 +589,10 @@ export function createUsedMarginsChart(container: HTMLElement, portfolioData: Po
         y: {
           title: {
             display: true,
-            text: "Margin ($)",
+            text: `Margin (${currency})`,
           },
           ticks: {
-            callback: (value) => formatCurrency(value as number),
+            callback: (value) => formatCurrency(value as number, currency),
           },
         },
       },
@@ -583,7 +605,11 @@ export function createUsedMarginsChart(container: HTMLElement, portfolioData: Po
   })
 }
 
-export function createSingleStrategyCharts(container: HTMLElement, portfolioData: PortfolioData): void {
+export function createSingleStrategyCharts(
+  container: HTMLElement,
+  portfolioData: PortfolioData,
+  currency: "USD" | "EUR" = "USD",
+): void {
   const { strategies } = portfolioData
 
   // Clear any existing content
@@ -654,7 +680,7 @@ export function createSingleStrategyCharts(container: HTMLElement, portfolioData
             mode: "index",
             intersect: false,
             callbacks: {
-              label: (context) => `Equity: ${formatCurrency(context.parsed.y)}`,
+              label: (context) => `Equity: ${formatCurrency(context.parsed.y, currency)}`,
             },
           },
           legend: {
@@ -676,10 +702,10 @@ export function createSingleStrategyCharts(container: HTMLElement, portfolioData
           y: {
             title: {
               display: true,
-              text: "Equity ($)",
+              text: `Equity (${currency})`,
             },
             ticks: {
-              callback: (value) => formatCurrency(value as number),
+              callback: (value) => formatCurrency(value as number, currency),
             },
           },
         },

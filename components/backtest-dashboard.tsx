@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { FileUploader, type ImportFormat } from "@/components/file-uploader"
 import { DateRangeFilter } from "@/components/date-range-filter"
 import { TabNavigation } from "@/components/tab-navigation"
@@ -9,6 +9,7 @@ import { ReturnsDistributionTab } from "@/components/tabs/returns-distribution-t
 import { SingleStrategiesTab } from "@/components/tabs/single-strategies-tab"
 import type { PortfolioData } from "@/types/portfolio"
 import { processTradeStationCSV, processMultiChartsCSV, processNinjaTraderCSV } from "@/lib/data-processors"
+import { initializeExchangeRate, updateExchangeRate } from "@/lib/formatters"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
@@ -21,10 +22,17 @@ export function BacktestDashboard() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [marginType, setMarginType] = useState<"intraday" | "overnight">("intraday")
+  const [currency, setCurrency] = useState<"USD" | "EUR">("USD")
+  const [exchangeRateLoading, setExchangeRateLoading] = useState(false)
   const [dateRange, setDateRange] = useState({
     startDate: "2008-01-01",
     endDate: "2099-01-01",
   })
+
+  // Inizializza il tasso di cambio al caricamento del componente
+  useEffect(() => {
+    initializeExchangeRate().catch(console.error)
+  }, [])
 
   const handleFilesUploaded = async (files: File[], quantities: number[], format: ImportFormat) => {
     setIsLoading(true)
@@ -98,6 +106,38 @@ export function BacktestDashboard() {
     }
   }
 
+  const handleCurrencyChange = async (checked: boolean) => {
+    const newCurrency = checked ? "EUR" : "USD"
+    setCurrency(newCurrency)
+
+    // Se stiamo passando a EUR, aggiorna il tasso di cambio
+    if (newCurrency === "EUR") {
+      setExchangeRateLoading(true)
+      try {
+        await updateExchangeRate()
+        console.log("Exchange rate updated successfully")
+      } catch (error) {
+        console.error("Error updating exchange rate:", error)
+        setError("Errore nell'aggiornamento del tasso di cambio. Verrà utilizzato un valore di fallback.")
+      } finally {
+        setExchangeRateLoading(false)
+      }
+    }
+  }
+
+  const handleUpdateExchangeRate = async () => {
+    setExchangeRateLoading(true)
+    try {
+      const newRate = await updateExchangeRate()
+      console.log(`Exchange rate updated: 1 USD = ${newRate.toFixed(4)} EUR`)
+    } catch (error) {
+      console.error("Error updating exchange rate:", error)
+      setError("Errore nell'aggiornamento del tasso di cambio.")
+    } finally {
+      setExchangeRateLoading(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {error && (
@@ -116,11 +156,25 @@ export function BacktestDashboard() {
 
       {!portfolioData ? (
         <>
-          <div className="flex items-center justify-end mb-4 space-x-2">
-            <Label htmlFor="margin-type" className="text-sm font-medium">
-              {marginType === "intraday" ? "Intraday Margins" : "Overnight Margins"}
-            </Label>
-            <Switch id="margin-type" checked={marginType === "overnight"} onCheckedChange={handleMarginTypeChange} />
+          <div className="flex items-center justify-end mb-4 space-x-6">
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="margin-type" className="text-sm font-medium">
+                {marginType === "intraday" ? "Intraday Margins" : "Overnight Margins"}
+              </Label>
+              <Switch id="margin-type" checked={marginType === "overnight"} onCheckedChange={handleMarginTypeChange} />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="currency-type" className="text-sm font-medium">
+                {currency === "USD" ? "USD ($)" : "EUR (€)"}
+              </Label>
+              <Switch
+                id="currency-type"
+                checked={currency === "EUR"}
+                onCheckedChange={handleCurrencyChange}
+                disabled={exchangeRateLoading}
+              />
+              {exchangeRateLoading && <RefreshCw className="h-4 w-4 animate-spin text-gray-500" />}
+            </div>
           </div>
           <FileUploader onFilesUploaded={handleFilesUploaded} isLoading={isLoading} />
         </>
@@ -143,6 +197,32 @@ export function BacktestDashboard() {
                   onCheckedChange={handleMarginTypeChange}
                 />
               </div>
+              <div className="flex items-center space-x-2">
+                <Label htmlFor="currency-type-switch" className="text-sm font-medium">
+                  {currency === "USD" ? "USD ($)" : "EUR (€)"}
+                </Label>
+                <Switch
+                  id="currency-type-switch"
+                  checked={currency === "EUR"}
+                  onCheckedChange={handleCurrencyChange}
+                  disabled={exchangeRateLoading}
+                />
+                {currency === "EUR" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleUpdateExchangeRate}
+                    disabled={exchangeRateLoading}
+                    className="ml-2"
+                  >
+                    {exchangeRateLoading ? (
+                      <RefreshCw className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-3 w-3" />
+                    )}
+                  </Button>
+                )}
+              </div>
               <Button variant="outline" className="flex items-center gap-2" onClick={handleReset}>
                 <RefreshCw className="h-4 w-4" />
                 Reset Analysis
@@ -153,9 +233,13 @@ export function BacktestDashboard() {
           <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
 
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-            {activeTab === "equity-curve" && <EquityCurveTab portfolioData={portfolioData} />}
-            {activeTab === "returns-distribution" && <ReturnsDistributionTab portfolioData={portfolioData} />}
-            {activeTab === "single-strategies" && <SingleStrategiesTab portfolioData={portfolioData} />}
+            {activeTab === "equity-curve" && <EquityCurveTab portfolioData={portfolioData} currency={currency} />}
+            {activeTab === "returns-distribution" && (
+              <ReturnsDistributionTab portfolioData={portfolioData} currency={currency} />
+            )}
+            {activeTab === "single-strategies" && (
+              <SingleStrategiesTab portfolioData={portfolioData} currency={currency} />
+            )}
           </div>
         </>
       )}

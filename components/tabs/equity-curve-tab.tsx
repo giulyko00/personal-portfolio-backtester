@@ -13,9 +13,10 @@ import {
 
 interface EquityCurveTabProps {
   portfolioData: PortfolioData
+  currency?: "USD" | "EUR"
 }
 
-export function EquityCurveTab({ portfolioData }: EquityCurveTabProps) {
+export function EquityCurveTab({ portfolioData, currency = "USD" }: EquityCurveTabProps) {
   const equityChartRef = useRef<HTMLDivElement>(null)
   const drawdownChartRef = useRef<HTMLDivElement>(null)
   const monthlyReturnsRef = useRef<HTMLDivElement>(null)
@@ -30,9 +31,9 @@ export function EquityCurveTab({ portfolioData }: EquityCurveTabProps) {
       correlationMatrixRef.current
     ) {
       // Create charts using the chart creation functions
-      createEquityCurveChart(equityChartRef.current, portfolioData)
-      createDrawdownChart(drawdownChartRef.current, portfolioData)
-      createMonthlyReturnsTable(monthlyReturnsRef.current, portfolioData)
+      createEquityCurveChart(equityChartRef.current, portfolioData, currency)
+      createDrawdownChart(drawdownChartRef.current, portfolioData, currency)
+      createMonthlyReturnsTable(monthlyReturnsRef.current, portfolioData, currency)
       createCorrelationMatrix(correlationMatrixRef.current, portfolioData)
     }
 
@@ -48,7 +49,7 @@ export function EquityCurveTab({ portfolioData }: EquityCurveTabProps) {
         correlationMatrixRef.current.innerHTML = ""
       }
     }
-  }, [portfolioData])
+  }, [portfolioData, currency])
 
   if (!portfolioData) {
     return <div>No data available</div>
@@ -59,7 +60,7 @@ export function EquityCurveTab({ portfolioData }: EquityCurveTabProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div className="md:col-span-1 space-y-6">
-<div className="h-[640px]" ref={equityChartRef}></div>
+        <div className="h-[640px]" ref={equityChartRef}></div>
         <div className="h-64" ref={drawdownChartRef}></div>
       </div>
 
@@ -89,27 +90,31 @@ export function EquityCurveTab({ portfolioData }: EquityCurveTabProps) {
                 </tr>
                 <tr className="bg-gray-100 dark:bg-gray-800">
                   <td className="px-4 py-2">Real Minimum Account Req</td>
-                  <td className="px-4 py-2 text-right">{formatCurrency(statistics.realMinimumAccountReq)}</td>
+                  <td className="px-4 py-2 text-right">{formatCurrency(statistics.realMinimumAccountReq, currency)}</td>
                 </tr>
 
                 {portfolioData.strategies.map((strategy, index) => (
                   <tr key={index} className={index % 2 === 0 ? "bg-gray-100 dark:bg-gray-800" : ""}>
                     <td className="px-4 py-2">Total Net Profit {strategy.name}</td>
-                    <td className="px-4 py-2 text-right">{formatCurrency(strategy.netProfit)}</td>
+                    <td className="px-4 py-2 text-right">{formatCurrency(strategy.netProfit, currency)}</td>
                   </tr>
                 ))}
 
                 <tr className="bg-gray-100 dark:bg-gray-800 font-medium">
                   <td className="px-4 py-2">Total Net Profit Portfolio</td>
-                  <td className="px-4 py-2 text-right">{formatCurrency(statistics.totalNetProfit)}</td>
+                  <td className="px-4 py-2 text-right">{formatCurrency(statistics.totalNetProfit, currency)}</td>
                 </tr>
                 <tr>
                   <td className="px-4 py-2">Max Drawdown</td>
-                  <td className="px-4 py-2 text-right text-red-500">-{formatCurrency(statistics.maxDrawdown)}</td>
+                  <td className="px-4 py-2 text-right text-red-500">
+                    -{formatCurrency(statistics.maxDrawdown, currency)}
+                  </td>
                 </tr>
                 <tr className="bg-gray-100 dark:bg-gray-800">
                   <td className="px-4 py-2">Mean Drawdown</td>
-                  <td className="px-4 py-2 text-right text-red-500">-{formatCurrency(statistics.meanDrawdown)}</td>
+                  <td className="px-4 py-2 text-right text-red-500">
+                    -{formatCurrency(statistics.meanDrawdown, currency)}
+                  </td>
                 </tr>
                 <tr>
                   <td className="px-4 py-2">Profit Factor</td>
@@ -129,7 +134,7 @@ export function EquityCurveTab({ portfolioData }: EquityCurveTabProps) {
                 </tr>
                 <tr>
                   <td className="px-4 py-2">Average Trade Profit</td>
-                  <td className="px-4 py-2 text-right">{formatCurrency(statistics.averageTradeProfit)}</td>
+                  <td className="px-4 py-2 text-right">{formatCurrency(statistics.averageTradeProfit, currency)}</td>
                 </tr>
                 <tr className="bg-gray-100 dark:bg-gray-800">
                   <td className="px-4 py-2">Max Consec. Winning Trades</td>
@@ -145,7 +150,7 @@ export function EquityCurveTab({ portfolioData }: EquityCurveTabProps) {
                 </tr>
                 <tr>
                   <td className="px-4 py-2">Net Profit per Month</td>
-                  <td className="px-4 py-2 text-right">{formatCurrency(statistics.netProfitPerMonth)}</td>
+                  <td className="px-4 py-2 text-right">{formatCurrency(statistics.netProfitPerMonth, currency)}</td>
                 </tr>
               </tbody>
             </table>

@@ -8,16 +8,17 @@ import { createReturnsDistributionChart, createUsedMarginsChart } from "@/lib/ch
 
 interface ReturnsDistributionTabProps {
   portfolioData: PortfolioData
+  currency?: "USD" | "EUR"
 }
 
-export function ReturnsDistributionTab({ portfolioData }: ReturnsDistributionTabProps) {
+export function ReturnsDistributionTab({ portfolioData, currency = "USD" }: ReturnsDistributionTabProps) {
   const returnsDistributionRef = useRef<HTMLDivElement>(null)
   const usedMarginsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (portfolioData && returnsDistributionRef.current && usedMarginsRef.current) {
-      createReturnsDistributionChart(returnsDistributionRef.current, portfolioData)
-      createUsedMarginsChart(usedMarginsRef.current, portfolioData)
+      createReturnsDistributionChart(returnsDistributionRef.current, portfolioData, currency)
+      createUsedMarginsChart(usedMarginsRef.current, portfolioData, currency)
     }
 
     // Cleanup function to destroy charts when component unmounts
@@ -29,7 +30,7 @@ export function ReturnsDistributionTab({ portfolioData }: ReturnsDistributionTab
         usedMarginsRef.current.innerHTML = ""
       }
     }
-  }, [portfolioData])
+  }, [portfolioData, currency])
 
   if (!portfolioData) {
     return <div>No data available</div>
@@ -68,18 +69,18 @@ export function ReturnsDistributionTab({ portfolioData }: ReturnsDistributionTab
                 {portfolioData.strategies.map((strategy, index) => (
                   <tr key={index} className={index % 2 === 0 ? "bg-gray-100 dark:bg-gray-800" : ""}>
                     <td className="px-4 py-2">Margin for {strategy.name}</td>
-                    <td className="px-4 py-2 text-right">{formatCurrency(margins.strategyMargins[index])}</td>
+                    <td className="px-4 py-2 text-right">{formatCurrency(margins.strategyMargins[index], currency)}</td>
                   </tr>
                 ))}
 
                 <tr className="bg-gray-100 dark:bg-gray-800 font-medium">
                   <td className="px-4 py-2">Minimum Account Required</td>
-                  <td className="px-4 py-2 text-right">{formatCurrency(margins.minimumAccountRequired)}</td>
+                  <td className="px-4 py-2 text-right">{formatCurrency(margins.minimumAccountRequired, currency)}</td>
                 </tr>
 
                 <tr>
                   <td className="px-4 py-2">Max Used Margin</td>
-                  <td className="px-4 py-2 text-right">{formatCurrency(margins.maxUsedMargin)}</td>
+                  <td className="px-4 py-2 text-right">{formatCurrency(margins.maxUsedMargin, currency)}</td>
                 </tr>
 
                 <tr className="bg-gray-100 dark:bg-gray-800">
@@ -94,7 +95,7 @@ export function ReturnsDistributionTab({ portfolioData }: ReturnsDistributionTab
 
                 <tr className="bg-gray-100 dark:bg-gray-800 font-medium">
                   <td className="px-4 py-2">Real Minimum Account Req</td>
-                  <td className="px-4 py-2 text-right">{formatCurrency(statistics.realMinimumAccountReq)}</td>
+                  <td className="px-4 py-2 text-right">{formatCurrency(statistics.realMinimumAccountReq, currency)}</td>
                 </tr>
               </tbody>
             </table>

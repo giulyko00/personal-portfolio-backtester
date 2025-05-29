@@ -7,14 +7,15 @@ import { createSingleStrategyCharts } from "@/lib/chart-creators"
 
 interface SingleStrategiesTabProps {
   portfolioData: PortfolioData
+  currency?: "USD" | "EUR"
 }
 
-export function SingleStrategiesTab({ portfolioData }: SingleStrategiesTabProps) {
+export function SingleStrategiesTab({ portfolioData, currency = "USD" }: SingleStrategiesTabProps) {
   const strategiesContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (portfolioData && strategiesContainerRef.current) {
-      createSingleStrategyCharts(strategiesContainerRef.current, portfolioData)
+      createSingleStrategyCharts(strategiesContainerRef.current, portfolioData, currency)
     }
 
     // Cleanup function to destroy charts when component unmounts
@@ -23,7 +24,7 @@ export function SingleStrategiesTab({ portfolioData }: SingleStrategiesTabProps)
         strategiesContainerRef.current.innerHTML = ""
       }
     }
-  }, [portfolioData])
+  }, [portfolioData, currency])
 
   if (!portfolioData) {
     return <div>No data available</div>
