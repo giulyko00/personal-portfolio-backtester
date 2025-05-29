@@ -208,6 +208,9 @@ export async function processTradeStationCSV(
           .split("T")[0] || "",
     }
 
+    // Calculate real minimum account required
+    statistics.realMinimumAccountReq = statistics.maxDrawdown + margins.maxUsedMargin
+
     // Return the complete portfolio data
     return {
       strategies,
@@ -303,6 +306,9 @@ export async function processMultiChartsCSV(
           .split("T")[0] || "",
     }
 
+    // Calculate real minimum account required
+    statistics.realMinimumAccountReq = statistics.maxDrawdown + margins.maxUsedMargin
+
     return {
       strategies,
       portfolioTrades,
@@ -396,6 +402,9 @@ export async function processNinjaTraderCSV(
           ?.date.toISOString()
           .split("T")[0] || "",
     }
+
+    // Calculate real minimum account required
+    statistics.realMinimumAccountReq = statistics.maxDrawdown + margins.maxUsedMargin
 
     return {
       strategies,
@@ -652,9 +661,6 @@ function calculateStatistics(trades: Trade[], equity: number[], drawdowns: numbe
   const sharpeRatio = stdDev === 0 ? 0 : meanReturn / stdDev
   const sortinoRatio = downDev === 0 ? 0 : meanReturn / downDev
 
-  // Calculate real minimum account required
-  const realMinimumAccountReq = maxDrawdown * 2
-
   return {
     totalNetProfit,
     maxDrawdown,
@@ -672,7 +678,6 @@ function calculateStatistics(trades: Trade[], equity: number[], drawdowns: numbe
     netProfitPerMonth,
     sharpeRatio,
     sortinoRatio,
-    realMinimumAccountReq,
   }
 }
 
