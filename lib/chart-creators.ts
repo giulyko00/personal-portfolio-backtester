@@ -450,16 +450,19 @@ export function createSingleStrategyCharts(
     chartContainer.appendChild(canvas)
     container.appendChild(chartContainer)
 
-    const labels = strategy.trades.map((_, i) => i + 1)
+    // Preparare i dati con l'asse X basato sul tempo
+    const data = strategy.equity.map((equity, tradeIndex) => ({
+      x: strategy.trades[tradeIndex]?.exitTime,
+      y: equity,
+    }))
 
     new Chart(canvas, {
       type: "line",
       data: {
-        labels,
         datasets: [
           {
             label: strategy.name,
-            data: strategy.equity,
+            data: data,
             borderColor: `hsl(${(index * 360) / portfolioData.strategies.length}, 70%, 50%)`,
             backgroundColor: `hsla(${(index * 360) / portfolioData.strategies.length}, 70%, 50%, 0.1)`,
             borderWidth: 2,
@@ -486,7 +489,14 @@ export function createSingleStrategyCharts(
         },
         scales: {
           x: {
-            title: { display: true, text: "Trade Number" },
+            type: "time",
+            time: {
+              unit: "day",
+              displayFormats: {
+                day: "MMM dd",
+              },
+            },
+            title: { display: true, text: "Date" },
           },
           y: {
             title: { display: true, text: `Equity (${currency})` },
