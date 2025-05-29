@@ -450,6 +450,25 @@ export function createSingleStrategyCharts(
     chartContainer.appendChild(canvas)
     container.appendChild(chartContainer)
 
+    // Debug: log dei dati per verificare
+    console.log(`Strategy ${strategy.name}:`, {
+      trades: strategy.trades.length,
+      equity: strategy.equity,
+      netProfit: strategy.netProfit,
+    })
+
+    // Calcola l'equity curve cumulativa se non è già calcolata correttamente
+    let equityData = strategy.equity
+    if (equityData.length === 0 || equityData.every((val) => val === equityData[0])) {
+      // Ricalcola l'equity curve se i dati sembrano errati
+      equityData = []
+      let cumulativeProfit = 0
+      for (const trade of strategy.trades) {
+        cumulativeProfit += trade.profit
+        equityData.push(cumulativeProfit)
+      }
+    }
+
     const labels = strategy.trades.map((_, i) => i + 1)
 
     new Chart(canvas, {
@@ -459,7 +478,7 @@ export function createSingleStrategyCharts(
         datasets: [
           {
             label: strategy.name,
-            data: strategy.equity,
+            data: equityData,
             borderColor: `hsl(${(index * 360) / portfolioData.strategies.length}, 70%, 50%)`,
             backgroundColor: `hsla(${(index * 360) / portfolioData.strategies.length}, 70%, 50%, 0.1)`,
             borderWidth: 2,
@@ -490,6 +509,7 @@ export function createSingleStrategyCharts(
           },
           y: {
             title: { display: true, text: `Equity (${currency})` },
+            beginAtZero: false, // Non iniziare da zero per vedere meglio le variazioni
             ticks: {
               callback: (value) => formatCurrency(value as number, currency),
             },
