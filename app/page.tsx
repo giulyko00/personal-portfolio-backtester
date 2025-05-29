@@ -16,7 +16,6 @@ export default function Home() {
           </h3>
           <ul className="list-disc list-inside space-y-2 text-md">
             <li>Correlazione di Spearman vs Pearson</li>
-            <li>Calcolo margini in USD/Euro</li>
             <li>
               Simulazione di eliminazione del 5% (o altro numero) dei best trades
               come stress/robustness test
