@@ -414,7 +414,7 @@ export function createUsedMarginsChart(
         },
         tooltip: {
           callbacks: {
-            label: (context) => `${context.dataset.label}: ${formatCurrency(context.parsed.y, currency)}`,
+            label: (context) => `Used Margin: ${formatCurrency(context.parsed.y, currency)}`,
           },
         },
       },
@@ -424,7 +424,7 @@ export function createUsedMarginsChart(
           ticks: { maxTicksLimit: 10 },
         },
         y: {
-          title: { display: true, text: `Margin (${currency})` },
+          title: { display: true, text: `Used Margin (${currency})` },
           ticks: {
             callback: (value) => formatCurrency(value as number, currency),
           },
@@ -444,7 +444,7 @@ export function createSingleStrategyCharts(
 
   portfolioData.strategies.forEach((strategy, index) => {
     const chartContainer = document.createElement("div")
-    chartContainer.className = "h-80" // Cambiato da h-64 a h-80
+    chartContainer.className = "h-64"
 
     const canvas = document.createElement("canvas")
     chartContainer.appendChild(canvas)
