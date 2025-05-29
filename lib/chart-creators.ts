@@ -372,6 +372,9 @@ export function createUsedMarginsChart(
 
   const labels = portfolioData.usedMargins.map((margin) => margin.date.toISOString().split("T")[0])
 
+  // Calculate sum of all strategy margins (constant line)
+  const sumOfMargins = portfolioData.margins.strategyMargins.reduce((sum, margin) => sum + margin, 0)
+
   new Chart(canvas, {
     type: "line",
     data: {
@@ -387,6 +390,17 @@ export function createUsedMarginsChart(
           tension: 0.1,
           pointRadius: 0,
         },
+        {
+          label: "Sum of Margins",
+          data: portfolioData.usedMargins.map(() => sumOfMargins),
+          borderColor: "rgba(255, 99, 132, 1)",
+          backgroundColor: "rgba(255, 99, 132, 0.1)",
+          borderWidth: 2,
+          borderDash: [5, 5],
+          fill: false,
+          tension: 0,
+          pointRadius: 0,
+        },
       ],
     },
     options: {
@@ -400,7 +414,7 @@ export function createUsedMarginsChart(
         },
         tooltip: {
           callbacks: {
-            label: (context) => `Used Margin: ${formatCurrency(context.parsed.y, currency)}`,
+            label: (context) => `${context.dataset.label}: ${formatCurrency(context.parsed.y, currency)}`,
           },
         },
       },
@@ -410,7 +424,7 @@ export function createUsedMarginsChart(
           ticks: { maxTicksLimit: 10 },
         },
         y: {
-          title: { display: true, text: `Used Margin (${currency})` },
+          title: { display: true, text: `Margin (${currency})` },
           ticks: {
             callback: (value) => formatCurrency(value as number, currency),
           },
@@ -430,7 +444,7 @@ export function createSingleStrategyCharts(
 
   portfolioData.strategies.forEach((strategy, index) => {
     const chartContainer = document.createElement("div")
-    chartContainer.className = "h-64"
+    chartContainer.className = "h-80" // Cambiato da h-64 a h-80
 
     const canvas = document.createElement("canvas")
     chartContainer.appendChild(canvas)
