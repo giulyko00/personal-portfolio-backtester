@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { BarChart3, LineChart, SplitSquareVertical } from "lucide-react"
+import { BarChart3, LineChart, SplitSquareVertical, Shuffle } from "lucide-react"
 
 interface TabNavigationProps {
   activeTab: string
@@ -42,6 +42,17 @@ export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
       >
         <SplitSquareVertical className="h-4 w-4" />
         <span>Single Strategies</span>
+      </Button>
+
+      <Button
+        variant={activeTab === "monte-carlo" ? "default" : "ghost"}
+        className={`flex items-center gap-2 rounded-none border-b-2 px-4 py-2 ${
+          activeTab === "monte-carlo" ? "border-primary font-medium" : "border-transparent"
+        }`}
+        onClick={() => onTabChange("monte-carlo")}
+      >
+        <Shuffle className="h-4 w-4" />
+        <span>Monte Carlo Simulation</span>
       </Button>
     </div>
   )

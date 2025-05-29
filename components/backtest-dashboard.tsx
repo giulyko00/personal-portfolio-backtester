@@ -7,6 +7,7 @@ import { TabNavigation } from "@/components/tab-navigation"
 import { EquityCurveTab } from "@/components/tabs/equity-curve-tab"
 import { ReturnsDistributionTab } from "@/components/tabs/returns-distribution-tab"
 import { SingleStrategiesTab } from "@/components/tabs/single-strategies-tab"
+import { MonteCarloTab } from "@/components/tabs/monte-carlo-tab"
 import type { PortfolioData } from "@/types/portfolio"
 import { processTradeStationCSV, processMultiChartsCSV, processNinjaTraderCSV } from "@/lib/data-processors"
 import { initializeExchangeRate, updateExchangeRate } from "@/lib/formatters"
@@ -240,6 +241,7 @@ export function BacktestDashboard() {
             {activeTab === "single-strategies" && (
               <SingleStrategiesTab portfolioData={portfolioData} currency={currency} />
             )}
+            {activeTab === "monte-carlo" && <MonteCarloTab portfolioData={portfolioData} currency={currency} />}
           </div>
         </>
       )}

@@ -10,7 +10,7 @@ export default function Home() {
 
         <BacktestDashboard />
 
-        <section className="mt-10 ml-16">
+        <section className="px-32 mt-10 ml-16">
           <h3 className="font-semibold mb-4">
             #TODO
           </h3>

@@ -1,92 +1,65 @@
-"use client"
-
 import { Chart, registerables } from "chart.js"
-import { formatCurrency, formatNumber } from "@/lib/formatters"
-import type { PortfolioData } from "@/types/portfolio"
 import "chartjs-adapter-date-fns"
+import type { PortfolioData } from "@/types/portfolio"
+import { formatCurrency } from "@/lib/formatters"
 
 // Register all Chart.js components
 Chart.register(...registerables)
 
-// Color palette for strategies
-const STRATEGY_COLORS = [
-  "rgb(54, 162, 235)",
-  "rgb(255, 99, 132)",
-  "rgb(75, 192, 192)",
-  "rgb(255, 159, 64)",
-  "rgb(153, 102, 255)",
-  "rgb(255, 205, 86)",
-  "rgb(201, 203, 207)",
-  "rgb(0, 128, 0)",
-  "rgb(139, 0, 0)",
-  "rgb(0, 0, 139)",
-]
-
+// Original chart creation functions
 export function createEquityCurveChart(
   container: HTMLElement,
   portfolioData: PortfolioData,
   currency: "USD" | "EUR" = "USD",
 ): void {
-  const { portfolioTrades, portfolioEquity, strategies } = portfolioData
-
   // Clear any existing chart
   container.innerHTML = ""
   const canvas = document.createElement("canvas")
   container.appendChild(canvas)
 
-  // Prepare datasets
+  // Prepare data for equity curve with time-based x-axis
+  const labels = portfolioData.portfolioTrades.map((trade) => trade.exitTime)
+
   const datasets = [
     {
-      label: "Portfolio",
-      data: portfolioEquity.map((value, index) => ({
-        x: portfolioTrades[index]?.exitTime,
-        y: value,
+      label: "Portfolio Equity",
+      data: portfolioData.portfolioEquity.map((equity, index) => ({
+        x: portfolioData.portfolioTrades[index]?.exitTime,
+        y: equity,
       })),
-      borderColor: "rgb(0, 0, 0)",
+      borderColor: "rgba(0, 0, 0, 1)", // Black color for portfolio equity
       backgroundColor: "rgba(0, 0, 0, 0.1)",
-      borderWidth: 2,
-      tension: 0.1,
+      borderWidth: 3,
       fill: false,
+      tension: 0.1,
       pointRadius: 0,
-      pointHoverRadius: 3,
     },
+    ...portfolioData.strategies.map((strategy, index) => ({
+      label: strategy.name,
+      data: strategy.equity.map((equity, tradeIndex) => ({
+        x: strategy.trades[tradeIndex]?.exitTime,
+        y: equity,
+      })),
+      borderColor: `hsl(${(index * 360) / portfolioData.strategies.length}, 70%, 50%)`,
+      backgroundColor: `hsla(${(index * 360) / portfolioData.strategies.length}, 70%, 50%, 0.1)`,
+      borderWidth: 1,
+      fill: false,
+      tension: 0.1,
+      pointRadius: 0,
+    })),
   ]
 
-  // Add datasets for each strategy
-  strategies.forEach((strategy, index) => {
-    datasets.push({
-      label: strategy.name,
-      data: strategy.equity.map((value, i) => ({
-        x: strategy.trades[i]?.exitTime,
-        y: value,
-      })),
-      borderColor: STRATEGY_COLORS[index % STRATEGY_COLORS.length],
-      backgroundColor: `${STRATEGY_COLORS[index % STRATEGY_COLORS.length].replace("rgb", "rgba").replace(")", ", 0.1)")}`,
-      borderWidth: 1.5,
-      tension: 0.1,
-      fill: false,
-      pointRadius: 0,
-      pointHoverRadius: 3,
-    })
-  })
-
-  // Create the chart
   new Chart(canvas, {
     type: "line",
-    data: {
-      datasets,
-    },
+    data: { datasets },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
         title: {
           display: true,
-          text: "Equity Curve",
-          font: {
-            size: 16,
-            weight: "bold",
-          },
+          text: "Equity Curves",
+          font: { size: 16, weight: "bold" },
         },
         tooltip: {
           mode: "index",
@@ -95,72 +68,55 @@ export function createEquityCurveChart(
             label: (context) => `${context.dataset.label}: ${formatCurrency(context.parsed.y, currency)}`,
           },
         },
-        legend: {
-          position: "top",
-        },
       },
       scales: {
         x: {
           type: "time",
           time: {
-            unit: "month",
-            tooltipFormat: "MMM d, yyyy",
+            unit: "day",
+            displayFormats: {
+              day: "MMM dd",
+            },
           },
-          title: {
-            display: true,
-            text: "Date",
-          },
+          title: { display: true, text: "Date" },
         },
         y: {
-          title: {
-            display: true,
-            text: `Equity (${currency})`,
-          },
+          title: { display: true, text: `Equity (${currency})` },
           ticks: {
             callback: (value) => formatCurrency(value as number, currency),
           },
         },
       },
-      interaction: {
-        mode: "nearest",
-        axis: "x",
-        intersect: false,
-      },
     },
   })
 }
 
-// Modifica la funzione createDrawdownChart per utilizzare un grafico a linee invece di barre
 export function createDrawdownChart(
   container: HTMLElement,
   portfolioData: PortfolioData,
   currency: "USD" | "EUR" = "USD",
 ): void {
-  const { portfolioTrades, drawdowns } = portfolioData
-
   // Clear any existing chart
   container.innerHTML = ""
   const canvas = document.createElement("canvas")
   container.appendChild(canvas)
 
-  // Create the chart
+  const labels = portfolioData.portfolioTrades.map((_, index) => index + 1)
+
   new Chart(canvas, {
     type: "line",
     data: {
+      labels,
       datasets: [
         {
           label: "Drawdown",
-          data: drawdowns.map((value, index) => ({
-            x: portfolioTrades[index]?.exitTime,
-            y: value,
-          })),
-          backgroundColor: "rgba(255, 99, 132, 0.2)",
+          data: portfolioData.drawdowns,
           borderColor: "rgba(255, 99, 132, 1)",
+          backgroundColor: "rgba(255, 99, 132, 0.2)",
           borderWidth: 2,
           fill: true,
           tension: 0.1,
           pointRadius: 0,
-          pointHoverRadius: 3,
         },
       ],
     },
@@ -170,49 +126,25 @@ export function createDrawdownChart(
       plugins: {
         title: {
           display: true,
-          text: "Drawdown",
-          font: {
-            size: 14,
-            weight: "bold",
-          },
+          text: "Drawdown Chart",
+          font: { size: 16, weight: "bold" },
         },
         tooltip: {
-          mode: "index",
-          intersect: false,
           callbacks: {
             label: (context) => `Drawdown: ${formatCurrency(context.parsed.y, currency)}`,
           },
         },
-        legend: {
-          display: false,
-        },
       },
       scales: {
         x: {
-          type: "time",
-          time: {
-            unit: "month",
-            tooltipFormat: "MMM d, yyyy",
-          },
-          title: {
-            display: false,
-            text: "Date",
-          },
+          title: { display: true, text: "Trade Number" },
         },
         y: {
-          title: {
-            display: true,
-            text: `Drawdown (${currency})`,
-          },
+          title: { display: true, text: `Drawdown (${currency})` },
           ticks: {
             callback: (value) => formatCurrency(value as number, currency),
           },
         },
-      },
-      interaction: {
-        mode: "nearest",
-        axis: "x",
-        intersect: false,
       },
     },
   })
@@ -313,69 +245,46 @@ export function createMonthlyReturnsTable(
 }
 
 export function createCorrelationMatrix(container: HTMLElement, portfolioData: PortfolioData): void {
-  const { correlationMatrix, strategies } = portfolioData
-
-  // Create a table-based visualization instead of using an unsupported chart type
+  // Clear any existing content
   container.innerHTML = ""
 
-  // Create the correlation matrix HTML
-  let matrixHtml = `
-    <table class="w-full text-sm">
-      <thead>
-        <tr>
-          <th class="px-2 py-2 text-left bg-gray-100 dark:bg-gray-800"></th>
-          ${strategies
-            .map(
-              (strategy, i) => `
-            <th class="px-2 py-2 text-center bg-gray-100 dark:bg-gray-800">S${i + 1}</th>
-          `,
-            )
-            .join("")}
-        </tr>
-      </thead>
-      <tbody>
-  `
+  const table = document.createElement("table")
+  table.className = "w-full text-xs"
 
-  strategies.forEach((strategy, i) => {
-    matrixHtml += `
-      <tr>
-        <td class="px-2 py-2 font-medium bg-gray-100 dark:bg-gray-800">S${i + 1}</td>
-    `
+  const thead = document.createElement("thead")
+  const tbody = document.createElement("tbody")
 
-    correlationMatrix[i].forEach((correlation, j) => {
-      // Determine cell color based on correlation value
-      let cellClass = ""
+  // Create header
+  const headerRow = document.createElement("tr")
+  headerRow.innerHTML = `<th class="px-2 py-1"></th>`
+  portfolioData.strategies.forEach((strategy) => {
+    headerRow.innerHTML += `<th class="px-2 py-1 text-center">${strategy.name.substring(0, 8)}</th>`
+  })
+  thead.appendChild(headerRow)
 
-      if (i === j) {
-        cellClass = "bg-gray-200 dark:bg-gray-700"
-      } else if (correlation >= 0.7) {
-        cellClass = "bg-red-200 dark:bg-red-900/50"
-      } else if (correlation >= 0.3) {
-        cellClass = "bg-yellow-100 dark:bg-yellow-900/30"
-      } else if (correlation <= -0.3) {
-        cellClass = "bg-green-100 dark:bg-green-900/30"
-      } else if (correlation <= -0.7) {
-        cellClass = "bg-green-200 dark:bg-green-900/50"
-      }
+  // Create correlation matrix rows
+  portfolioData.strategies.forEach((strategy, i) => {
+    const row = document.createElement("tr")
+    row.innerHTML = `<td class="px-2 py-1 font-medium">${strategy.name.substring(0, 8)}</td>`
 
-      matrixHtml += `
-        <td class="px-2 py-2 text-center ${cellClass}">
-          ${formatNumber(correlation)}
-        </td>
-      `
+    portfolioData.strategies.forEach((_, j) => {
+      const correlation = portfolioData.correlationMatrix[i][j]
+      let bgColor = "bg-white"
+
+      if (correlation >= 0.7) bgColor = "bg-red-400"
+      else if (correlation >= 0.3) bgColor = "bg-yellow-100"
+      else if (correlation <= -0.3) bgColor = "bg-green-100"
+      else if (correlation <= -0.7) bgColor = "bg-green-200"
+
+      row.innerHTML += `<td class="px-2 py-1 text-center ${bgColor}">${correlation.toFixed(2)}</td>`
     })
 
-    matrixHtml += `</tr>`
+    tbody.appendChild(row)
   })
 
-  matrixHtml += `
-      </tbody>
-    </table>
-  `
-
-  // No legend here as it's now in the CardHeader
-
-  container.innerHTML = matrixHtml
+  table.appendChild(thead)
+  table.appendChild(tbody)
+  container.appendChild(table)
 }
 
 export function createReturnsDistributionChart(
@@ -383,33 +292,27 @@ export function createReturnsDistributionChart(
   portfolioData: PortfolioData,
   currency: "USD" | "EUR" = "USD",
 ): void {
-  const { monthlyReturns } = portfolioData
-  const returns = Object.values(monthlyReturns)
-
   // Clear any existing chart
   container.innerHTML = ""
   const canvas = document.createElement("canvas")
   container.appendChild(canvas)
 
-  // Calculate mean and standard deviation for Gaussian overlay
-  const mean = returns.reduce((sum, value) => sum + value, 0) / returns.length
-  const stdDev = Math.sqrt(returns.reduce((sum, value) => sum + Math.pow(value - mean, 2), 0) / returns.length)
-
-  // Generate bins for histogram
+  // Prepare data for histogram
+  const returns = Object.values(portfolioData.monthlyReturns)
   const min = Math.min(...returns)
   const max = Math.max(...returns)
   const range = max - min
-  const binWidth = range / 20 // 20 bins
+  const binWidth = range / 10 // 10 bins
   const bins: number[] = []
 
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 10; i++) {
     bins.push(min + i * binWidth)
   }
   bins.push(max)
 
   // Count values in each bin
   const counts: number[] = Array(bins.length - 1).fill(0)
-  returns.forEach((value) => {
+  returns.forEach((value: number) => {
     for (let i = 0; i < bins.length - 1; i++) {
       if (value >= bins[i] && value < bins[i + 1]) {
         counts[i]++
@@ -418,20 +321,6 @@ export function createReturnsDistributionChart(
     }
   })
 
-  // Normalize counts to get probability density
-  const density = counts.map((count) => count / (returns.length * binWidth))
-
-  // Generate Gaussian curve
-  const gaussianX: number[] = []
-  const gaussianY: number[] = []
-  const step = range / 100
-
-  for (let x = min; x <= max; x += step) {
-    gaussianX.push(x)
-    gaussianY.push((1 / (stdDev * Math.sqrt(2 * Math.PI))) * Math.exp(-0.5 * Math.pow((x - mean) / stdDev, 2)))
-  }
-
-  // Create the chart
   new Chart(canvas, {
     type: "bar",
     data: {
@@ -441,20 +330,10 @@ export function createReturnsDistributionChart(
       datasets: [
         {
           label: "Monthly Returns Distribution",
-          data: density,
-          backgroundColor: "rgba(255, 159, 64, 0.7)",
-          borderColor: "rgba(255, 159, 64, 1)",
-          borderWidth: 1,
-        },
-        {
-          label: "Gaussian Distribution",
-          data: gaussianY,
-          type: "line",
-          pointRadius: 0,
+          data: counts,
+          backgroundColor: "rgba(54, 162, 235, 0.7)",
           borderColor: "rgba(54, 162, 235, 1)",
-          borderWidth: 2,
-          fill: false,
-          tension: 0.4,
+          borderWidth: 1,
         },
       ],
     },
@@ -464,44 +343,17 @@ export function createReturnsDistributionChart(
       plugins: {
         title: {
           display: true,
-          text: "Monthly Returns Distribution with Gaussian Overlay",
-          font: {
-            size: 16,
-            weight: "bold",
-          },
-        },
-        tooltip: {
-          callbacks: {
-            label: (context) => {
-              if (context.datasetIndex === 0) {
-                return `Frequency: ${formatNumber(context.parsed.y * returns.length * binWidth)}`
-              } else {
-                return `Gaussian: ${formatNumber(context.parsed.y)}`
-              }
-            },
-          },
+          text: "Monthly Returns Distribution",
+          font: { size: 16, weight: "bold" },
         },
       },
       scales: {
         x: {
-          title: {
-            display: true,
-            text: `Monthly Return (${currency})`,
-          },
-          ticks: {
-            maxRotation: 90,
-            minRotation: 45,
-            callback: (value, index) => {
-              // Show fewer labels for readability
-              return index % 4 === 0 ? formatCurrency(bins[index as number], currency) : ""
-            },
-          },
+          title: { display: true, text: `Monthly Returns (${currency})` },
+          ticks: { maxRotation: 45 },
         },
         y: {
-          title: {
-            display: true,
-            text: "Probability Density",
-          },
+          title: { display: true, text: "Frequency" },
         },
       },
     },
@@ -513,43 +365,40 @@ export function createUsedMarginsChart(
   portfolioData: PortfolioData,
   currency: "USD" | "EUR" = "USD",
 ): void {
-  const { usedMargins, margins } = portfolioData
-
   // Clear any existing chart
   container.innerHTML = ""
   const canvas = document.createElement("canvas")
   container.appendChild(canvas)
 
-  // Prepare data
-  const dates = usedMargins.map((margin) => margin.date)
-  const totalMargins = usedMargins.map((margin) => margin.totalMargin)
-  const totalMarginSum = margins.strategyMargins.reduce((sum, margin) => sum + margin, 0)
+  const labels = portfolioData.usedMargins.map((margin) => margin.date.toISOString().split("T")[0])
 
-  // Create the chart
+  // Calculate sum of all strategy margins (constant line)
+  const sumOfMargins = portfolioData.margins.strategyMargins.reduce((sum, margin) => sum + margin, 0)
+
   new Chart(canvas, {
     type: "line",
     data: {
-      labels: dates,
+      labels,
       datasets: [
         {
           label: "Used Margin",
-          data: totalMargins,
-          backgroundColor: "rgba(54, 162, 235, 0.2)",
-          borderColor: "rgba(54, 162, 235, 1)",
-          borderWidth: 1,
+          data: portfolioData.usedMargins.map((margin) => margin.totalMargin),
+          borderColor: "rgba(255, 159, 64, 1)",
+          backgroundColor: "rgba(255, 159, 64, 0.2)",
+          borderWidth: 2,
           fill: true,
           tension: 0.1,
           pointRadius: 0,
-          pointHoverRadius: 3,
         },
         {
-          label: "Sum of Strategy Margins",
-          data: Array(dates.length).fill(totalMarginSum),
-          backgroundColor: "rgba(255, 99, 132, 0)",
+          label: "Sum of Margins",
+          data: portfolioData.usedMargins.map(() => sumOfMargins),
           borderColor: "rgba(255, 99, 132, 1)",
+          backgroundColor: "rgba(255, 99, 132, 0.1)",
           borderWidth: 2,
           borderDash: [5, 5],
           fill: false,
+          tension: 0,
           pointRadius: 0,
         },
       ],
@@ -561,6 +410,211 @@ export function createUsedMarginsChart(
         title: {
           display: true,
           text: "Used Margins Over Time",
+          font: { size: 16, weight: "bold" },
+        },
+        tooltip: {
+          callbacks: {
+            label: (context) => `${context.dataset.label}: ${formatCurrency(context.parsed.y, currency)}`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          title: { display: true, text: "Date" },
+          ticks: { maxTicksLimit: 10 },
+        },
+        y: {
+          title: { display: true, text: `Margin (${currency})` },
+          ticks: {
+            callback: (value) => formatCurrency(value as number, currency),
+          },
+        },
+      },
+    },
+  })
+}
+
+export function createSingleStrategyCharts(
+  container: HTMLElement,
+  portfolioData: PortfolioData,
+  currency: "USD" | "EUR" = "USD",
+): void {
+  // Clear any existing content
+  container.innerHTML = ""
+
+  portfolioData.strategies.forEach((strategy, index) => {
+    const chartContainer = document.createElement("div")
+    chartContainer.className = "h-80" // Cambiato da h-64 a h-80
+
+    const canvas = document.createElement("canvas")
+    chartContainer.appendChild(canvas)
+    container.appendChild(chartContainer)
+
+    const labels = strategy.trades.map((_, i) => i + 1)
+
+    new Chart(canvas, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: strategy.name,
+            data: strategy.equity,
+            borderColor: `hsl(${(index * 360) / portfolioData.strategies.length}, 70%, 50%)`,
+            backgroundColor: `hsla(${(index * 360) / portfolioData.strategies.length}, 70%, 50%, 0.1)`,
+            borderWidth: 2,
+            fill: false,
+            tension: 0.1,
+            pointRadius: 0,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: `${strategy.name} - Net Profit: ${formatCurrency(strategy.netProfit, currency)}`,
+            font: { size: 14, weight: "bold" },
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => `Equity: ${formatCurrency(context.parsed.y, currency)}`,
+            },
+          },
+        },
+        scales: {
+          x: {
+            title: { display: true, text: "Trade Number" },
+          },
+          y: {
+            title: { display: true, text: `Equity (${currency})` },
+            ticks: {
+              callback: (value) => formatCurrency(value as number, currency),
+            },
+          },
+        },
+      },
+    })
+  })
+}
+
+// Monte Carlo chart creation functions
+export function createMonteCarloCharts(
+  monteCarloContainer: HTMLElement,
+  drawdownDistributionContainer: HTMLElement,
+  finalEquityDistributionContainer: HTMLElement,
+  results: any,
+  currency: "USD" | "EUR" = "USD",
+): void {
+  createMonteCarloEquityCurves(monteCarloContainer, results, currency)
+  createDrawdownDistributionChart(drawdownDistributionContainer, results, currency)
+  createFinalEquityDistributionChart(finalEquityDistributionContainer, results, currency)
+}
+
+function createMonteCarloEquityCurves(container: HTMLElement, results: any, currency: "USD" | "EUR" = "USD"): void {
+  // Clear any existing chart
+  container.innerHTML = ""
+  const canvas = document.createElement("canvas")
+  container.appendChild(canvas)
+
+  // Prepare data
+  const equityCurves = results.equityCurves
+  const numPoints = equityCurves[0]?.length || 0
+
+  // Create x-axis labels (trade numbers)
+  const labels = Array.from({ length: numPoints }, (_, i) => i + 1)
+
+  // Calculate percentile curves
+  const percentiles = [0.05, 0.25, 0.5, 0.75, 0.95]
+  const percentileCurves: number[][] = []
+
+  for (let i = 0; i < numPoints; i++) {
+    const pointValues = equityCurves.map((curve) => curve[i] || 0)
+    const sortedValues = [...pointValues].sort((a, b) => a - b)
+
+    const percentileValues = percentiles.map((p) => {
+      const index = Math.floor(p * sortedValues.length)
+      return sortedValues[index] || 0
+    })
+
+    percentileValues.forEach((value, pIndex) => {
+      if (!percentileCurves[pIndex]) {
+        percentileCurves[pIndex] = []
+      }
+      percentileCurves[pIndex].push(value)
+    })
+  }
+
+  // Create datasets for the chart
+  const datasets = [
+    {
+      label: "95th Percentile",
+      data: percentileCurves[4],
+      borderColor: "rgba(0, 200, 0, 1)",
+      backgroundColor: "rgba(0, 200, 0, 0.1)",
+      borderWidth: 2,
+      fill: "+1",
+      tension: 0.1,
+      pointRadius: 0,
+    },
+    {
+      label: "75th Percentile",
+      data: percentileCurves[3],
+      borderColor: "rgba(0, 150, 0, 1)",
+      backgroundColor: "rgba(0, 150, 0, 0.1)",
+      borderWidth: 2,
+      fill: "+1",
+      tension: 0.1,
+      pointRadius: 0,
+    },
+    {
+      label: "Median (50th)",
+      data: percentileCurves[2],
+      borderColor: "rgba(0, 0, 0, 1)",
+      backgroundColor: "rgba(0, 0, 0, 0.1)",
+      borderWidth: 3,
+      fill: "+1",
+      tension: 0.1,
+      pointRadius: 0,
+    },
+    {
+      label: "25th Percentile",
+      data: percentileCurves[1],
+      borderColor: "rgba(200, 0, 0, 0.7)",
+      backgroundColor: "rgba(200, 0, 0, 0.1)",
+      borderWidth: 2,
+      fill: "+1",
+      tension: 0.1,
+      pointRadius: 0,
+    },
+    {
+      label: "5th Percentile",
+      data: percentileCurves[0],
+      borderColor: "rgba(200, 0, 0, 1)",
+      backgroundColor: "rgba(200, 0, 0, 0.1)",
+      borderWidth: 2,
+      fill: false,
+      tension: 0.1,
+      pointRadius: 0,
+    },
+  ]
+
+  // Create the chart
+  new Chart(canvas, {
+    type: "line",
+    data: {
+      labels,
+      datasets,
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        title: {
+          display: true,
+          text: `Monte Carlo Simulation - ${results.timeframe} Projection`,
           font: {
             size: 16,
             weight: "bold",
@@ -573,23 +627,21 @@ export function createUsedMarginsChart(
             label: (context) => `${context.dataset.label}: ${formatCurrency(context.parsed.y, currency)}`,
           },
         },
+        legend: {
+          position: "top",
+        },
       },
       scales: {
         x: {
-          type: "time",
-          time: {
-            unit: "month",
-            tooltipFormat: "MMM d, yyyy",
-          },
           title: {
             display: true,
-            text: "Date",
+            text: "Trade Number",
           },
         },
         y: {
           title: {
             display: true,
-            text: `Margin (${currency})`,
+            text: `Equity (${currency})`,
           },
           ticks: {
             callback: (value) => formatCurrency(value as number, currency),
@@ -605,151 +657,190 @@ export function createUsedMarginsChart(
   })
 }
 
-export function createSingleStrategyCharts(
-  container: HTMLElement,
-  portfolioData: PortfolioData,
-  currency: "USD" | "EUR" = "USD",
-): void {
-  const { strategies } = portfolioData
-
-  // Clear any existing content
+function createDrawdownDistributionChart(container: HTMLElement, results: any, currency: "USD" | "EUR" = "USD"): void {
+  // Clear any existing chart
   container.innerHTML = ""
+  const canvas = document.createElement("canvas")
+  container.appendChild(canvas)
 
-  // Create a grid container with fixed height
-  const gridContainer = document.createElement("div")
-  gridContainer.className = "grid grid-cols-1 gap-6"
-  container.appendChild(gridContainer)
+  // Prepare data for histogram
+  const maxDrawdowns = results.maxDrawdowns
+  const min = Math.min(...maxDrawdowns)
+  const max = Math.max(...maxDrawdowns)
+  const range = max - min
+  const binWidth = range / 20 // 20 bins
+  const bins: number[] = []
 
-  // Create a chart for each strategy
-  strategies.forEach((strategy, index) => {
-    const chartContainer = document.createElement("div")
-    chartContainer.className = "bg-white dark:bg-gray-800 rounded-lg p-4"
-    gridContainer.appendChild(chartContainer)
+  for (let i = 0; i < 20; i++) {
+    bins.push(min + i * binWidth)
+  }
+  bins.push(max)
 
-    const chartTitle = document.createElement("h3")
-    chartTitle.className = "text-lg font-medium mb-2"
-    chartTitle.textContent = `Strategy: ${strategy.name}`
-    chartContainer.appendChild(chartTitle)
+  // Count values in each bin
+  const counts: number[] = Array(bins.length - 1).fill(0)
+  maxDrawdowns.forEach((value: number) => {
+    for (let i = 0; i < bins.length - 1; i++) {
+      if (value >= bins[i] && value < bins[i + 1]) {
+        counts[i]++
+        break
+      }
+    }
+  })
 
-    const canvasContainer = document.createElement("div")
-    canvasContainer.className = "h-64 mb-4" // Increased height
-    chartContainer.appendChild(canvasContainer)
-
-    const canvas = document.createElement("canvas")
-    canvas.style.height = "100%"
-    canvas.style.width = "100%"
-    canvasContainer.appendChild(canvas)
-
-    // Calculate max drawdown for this strategy
-    const drawdowns = calculateDrawdowns(strategy.equity)
-    const maxDrawdown = Math.abs(Math.min(...drawdowns) || 0)
-
-    // Calculate profit factor (simplified)
-    const profitFactor =
-      strategy.trades.filter((t) => t.profit < 0).reduce((sum, t) => sum + Math.abs(t.profit), 0) === 0
-        ? Number.POSITIVE_INFINITY
-        : strategy.trades.filter((t) => t.profit > 0).reduce((sum, t) => sum + t.profit, 0) /
-          strategy.trades.filter((t) => t.profit < 0).reduce((sum, t) => sum + Math.abs(t.profit), 0)
-
-    // Create the chart
-    new Chart(canvas, {
-      type: "line",
-      data: {
-        datasets: [
-          {
-            label: "Equity",
-            data: strategy.equity.map((value, i) => ({
-              x: strategy.trades[i]?.exitTime,
-              y: value,
-            })),
-            borderColor: STRATEGY_COLORS[index % STRATEGY_COLORS.length],
-            backgroundColor: `${STRATEGY_COLORS[index % STRATEGY_COLORS.length].replace("rgb", "rgba").replace(")", ", 0.1)")}`,
-            borderWidth: 2,
-            tension: 0.1,
-            fill: true,
-            pointRadius: 0,
-            pointHoverRadius: 3,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: true,
-        plugins: {
-          tooltip: {
-            mode: "index",
-            intersect: false,
-            callbacks: {
-              label: (context) => `Equity: ${formatCurrency(context.parsed.y, currency)}`,
-            },
-          },
-          legend: {
-            display: false,
+  // Create the chart
+  new Chart(canvas, {
+    type: "bar",
+    data: {
+      labels: bins
+        .slice(0, -1)
+        .map((bin, i) => `${formatCurrency(bin, currency)} - ${formatCurrency(bins[i + 1], currency)}`),
+      datasets: [
+        {
+          label: "Maximum Drawdown Distribution",
+          data: counts,
+          backgroundColor: "rgba(255, 99, 132, 0.7)",
+          borderColor: "rgba(255, 99, 132, 1)",
+          borderWidth: 1,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        title: {
+          display: true,
+          text: "Maximum Drawdown Distribution",
+          font: {
+            size: 16,
+            weight: "bold",
           },
         },
-        scales: {
-          x: {
-            type: "time",
-            time: {
-              unit: "month",
-              tooltipFormat: "MMM d, yyyy",
-            },
-            title: {
-              display: true,
-              text: "Date",
-            },
+        tooltip: {
+          callbacks: {
+            label: (context) =>
+              `Count: ${context.parsed.y} (${((context.parsed.y / maxDrawdowns.length) * 100).toFixed(1)}%)`,
           },
-          y: {
-            title: {
-              display: true,
-              text: `Equity (${currency})`,
-            },
-            ticks: {
-              callback: (value) => formatCurrency(value as number, currency),
-            },
-          },
-        },
-        interaction: {
-          mode: "nearest",
-          axis: "x",
-          intersect: false,
         },
       },
-    })
-
-    // Add statistics below the chart
-    const statsContainer = document.createElement("div")
-    statsContainer.className = "grid grid-cols-2 gap-4 text-sm mt-2"
-    chartContainer.appendChild(statsContainer)
-
-    const netProfitMaxDD = document.createElement("div")
-    netProfitMaxDD.innerHTML = `
-      <p class="font-medium">Net Profit/Max DD:</p>
-      <p>${maxDrawdown ? (strategy.netProfit / maxDrawdown).toFixed(2) : "∞"}</p>
-    `
-    statsContainer.appendChild(netProfitMaxDD)
-
-    const profitFactorElement = document.createElement("div")
-    profitFactorElement.innerHTML = `
-      <p class="font-medium">Profit Factor:</p>
-      <p>${Number.isFinite(profitFactor) ? profitFactor.toFixed(2) : "∞"}</p>
-    `
-    statsContainer.appendChild(profitFactorElement)
+      scales: {
+        x: {
+          title: {
+            display: true,
+            text: `Maximum Drawdown (${currency})`,
+          },
+          ticks: {
+            maxRotation: 90,
+            minRotation: 45,
+            callback: (value, index) => {
+              // Show fewer labels for readability
+              return index % 4 === 0 ? formatCurrency(bins[index as number], currency) : ""
+            },
+          },
+        },
+        y: {
+          title: {
+            display: true,
+            text: "Frequency",
+          },
+        },
+      },
+    },
   })
 }
 
-// Helper function to calculate drawdowns from equity curve
-function calculateDrawdowns(equity: number[]): number[] {
-  const drawdowns: number[] = []
-  let peak = equity[0] || 0
+function createFinalEquityDistributionChart(
+  container: HTMLElement,
+  results: any,
+  currency: "USD" | "EUR" = "USD",
+): void {
+  // Clear any existing chart
+  container.innerHTML = ""
+  const canvas = document.createElement("canvas")
+  container.appendChild(canvas)
 
-  for (const value of equity) {
-    if (value > peak) {
-      peak = value
-    }
-    const drawdown = peak - value
-    drawdowns.push(-drawdown) // Negative values for drawdowns
+  // Prepare data for histogram
+  const finalEquities = results.finalEquities
+  const min = Math.min(...finalEquities)
+  const max = Math.max(...finalEquities)
+  const range = max - min
+  const binWidth = range / 20 // 20 bins
+  const bins: number[] = []
+
+  for (let i = 0; i < 20; i++) {
+    bins.push(min + i * binWidth)
   }
+  bins.push(max)
 
-  return drawdowns
+  // Count values in each bin
+  const counts: number[] = Array(bins.length - 1).fill(0)
+  finalEquities.forEach((value: number) => {
+    for (let i = 0; i < bins.length - 1; i++) {
+      if (value >= bins[i] && value < bins[i + 1]) {
+        counts[i]++
+        break
+      }
+    }
+  })
+
+  // Create the chart
+  new Chart(canvas, {
+    type: "bar",
+    data: {
+      labels: bins
+        .slice(0, -1)
+        .map((bin, i) => `${formatCurrency(bin, currency)} - ${formatCurrency(bins[i + 1], currency)}`),
+      datasets: [
+        {
+          label: "Final Equity Distribution",
+          data: counts,
+          backgroundColor: "rgba(54, 162, 235, 0.7)",
+          borderColor: "rgba(54, 162, 235, 1)",
+          borderWidth: 1,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        title: {
+          display: true,
+          text: "Final Equity Distribution",
+          font: {
+            size: 16,
+            weight: "bold",
+          },
+        },
+        tooltip: {
+          callbacks: {
+            label: (context) =>
+              `Count: ${context.parsed.y} (${((context.parsed.y / finalEquities.length) * 100).toFixed(1)}%)`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          title: {
+            display: true,
+            text: `Final Equity (${currency})`,
+          },
+          ticks: {
+            maxRotation: 90,
+            minRotation: 45,
+            callback: (value, index) => {
+              // Show fewer labels for readability
+              return index % 4 === 0 ? formatCurrency(bins[index as number], currency) : ""
+            },
+          },
+        },
+        y: {
+          title: {
+            display: true,
+            text: "Frequency",
+          },
+        },
+      },
+    },
+  })
 }
