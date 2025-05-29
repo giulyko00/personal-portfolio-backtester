@@ -17,23 +17,29 @@ export function createEquityCurveChart(
   const canvas = document.createElement("canvas")
   container.appendChild(canvas)
 
-  // Prepare data for equity curve
-  const labels = portfolioData.portfolioTrades.map((_, index) => index + 1)
+  // Prepare data for equity curve with time-based x-axis
+  const labels = portfolioData.portfolioTrades.map((trade) => trade.exitTime)
 
   const datasets = [
     {
       label: "Portfolio Equity",
-      data: portfolioData.portfolioEquity,
-      borderColor: "rgba(75, 192, 192, 1)",
-      backgroundColor: "rgba(75, 192, 192, 0.2)",
-      borderWidth: 2,
+      data: portfolioData.portfolioEquity.map((equity, index) => ({
+        x: portfolioData.portfolioTrades[index]?.exitTime,
+        y: equity,
+      })),
+      borderColor: "rgba(0, 0, 0, 1)", // Black color for portfolio equity
+      backgroundColor: "rgba(0, 0, 0, 0.1)",
+      borderWidth: 3,
       fill: false,
       tension: 0.1,
       pointRadius: 0,
     },
     ...portfolioData.strategies.map((strategy, index) => ({
       label: strategy.name,
-      data: strategy.equity,
+      data: strategy.equity.map((equity, tradeIndex) => ({
+        x: strategy.trades[tradeIndex]?.exitTime,
+        y: equity,
+      })),
       borderColor: `hsl(${(index * 360) / portfolioData.strategies.length}, 70%, 50%)`,
       backgroundColor: `hsla(${(index * 360) / portfolioData.strategies.length}, 70%, 50%, 0.1)`,
       borderWidth: 1,
@@ -45,7 +51,7 @@ export function createEquityCurveChart(
 
   new Chart(canvas, {
     type: "line",
-    data: { labels, datasets },
+    data: { datasets },
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -65,7 +71,14 @@ export function createEquityCurveChart(
       },
       scales: {
         x: {
-          title: { display: true, text: "Trade Number" },
+          type: "time",
+          time: {
+            unit: "day",
+            displayFormats: {
+              day: "MMM dd",
+            },
+          },
+          title: { display: true, text: "Date" },
         },
         y: {
           title: { display: true, text: `Equity (${currency})` },
@@ -142,38 +155,93 @@ export function createMonthlyReturnsTable(
   portfolioData: PortfolioData,
   currency: "USD" | "EUR" = "USD",
 ): void {
-  // Clear any existing content
-  container.innerHTML = ""
+  const { monthlyReturns } = portfolioData
 
-  const table = document.createElement("table")
-  table.className = "w-full text-sm"
+  // Group returns by year and month
+  const yearMonthMap: { [year: string]: { [month: string]: number } } = {}
 
-  const thead = document.createElement("thead")
-  const tbody = document.createElement("tbody")
+  Object.entries(monthlyReturns).forEach(([yearMonth, value]) => {
+    const [year, month] = yearMonth.split("-")
 
-  // Create header
-  const headerRow = document.createElement("tr")
-  headerRow.className = "bg-gray-100 dark:bg-gray-800"
-  headerRow.innerHTML = `
-    <th class="px-4 py-2 text-left">Month</th>
-    <th class="px-4 py-2 text-right">Return</th>
-  `
-  thead.appendChild(headerRow)
+    if (!yearMonthMap[year]) {
+      yearMonthMap[year] = {}
+    }
 
-  // Create rows for monthly returns
-  Object.entries(portfolioData.monthlyReturns).forEach(([month, returns], index) => {
-    const row = document.createElement("tr")
-    row.className = index % 2 === 0 ? "bg-gray-100 dark:bg-gray-800" : ""
-    row.innerHTML = `
-      <td class="px-4 py-2">${month}</td>
-      <td class="px-4 py-2 text-right ${returns >= 0 ? "text-green-600" : "text-red-600"}">${formatCurrency(returns, currency)}</td>
-    `
-    tbody.appendChild(row)
+    yearMonthMap[year][month] = value
   })
 
-  table.appendChild(thead)
-  table.appendChild(tbody)
-  container.appendChild(table)
+  // Create the table HTML
+  let tableHtml = `
+    <table class="w-full text-sm">
+      <thead>
+        <tr>
+          <th class="px-2 py-2 text-left bg-gray-100 dark:bg-gray-800">Year</th>
+          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Jan</th>
+          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Feb</th>
+          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Mar</th>
+          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Apr</th>
+          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">May</th>
+          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Jun</th>
+          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Jul</th>
+          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Aug</th>
+          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Sep</th>
+          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Oct</th>
+          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Nov</th>
+          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Dec</th>
+          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+  `
+
+  // Sort years in ascending order (oldest first)
+  const years = Object.keys(yearMonthMap).sort((a, b) => Number.parseInt(a) - Number.parseInt(b))
+
+  years.forEach((year) => {
+    const monthData = yearMonthMap[year]
+    let yearTotal = 0
+
+    tableHtml += `<tr>
+      <td class="px-2 py-2 font-medium">${year}</td>
+    `
+
+    for (let month = 1; month <= 12; month++) {
+      const monthStr = String(month).padStart(2, "0")
+      const value = monthData[monthStr] || 0
+      yearTotal += value
+
+      const cellClass =
+        value > 0 ? "bg-green-100 dark:bg-green-900/30" : value < 0 ? "bg-red-100 dark:bg-red-900/30" : ""
+
+      tableHtml += `
+        <td class="px-2 py-2 text-right ${cellClass}">
+          ${value ? formatCurrency(value, currency) : ""}
+        </td>
+      `
+    }
+
+    // Year total
+    const totalCellClass =
+      yearTotal > 0
+        ? "bg-green-200 dark:bg-green-900/50 font-medium"
+        : yearTotal < 0
+          ? "bg-red-200 dark:bg-red-900/50 font-medium"
+          : "font-medium"
+
+    tableHtml += `
+      <td class="px-2 py-2 text-right ${totalCellClass}">
+        ${formatCurrency(yearTotal, currency)}
+      </td>
+    </tr>
+    `
+  })
+
+  tableHtml += `
+      </tbody>
+    </table>
+  `
+
+  container.innerHTML = tableHtml
 }
 
 export function createCorrelationMatrix(container: HTMLElement, portfolioData: PortfolioData): void {
@@ -304,6 +372,9 @@ export function createUsedMarginsChart(
 
   const labels = portfolioData.usedMargins.map((margin) => margin.date.toISOString().split("T")[0])
 
+  // Calculate sum of all strategy margins (constant line)
+  const sumOfMargins = portfolioData.margins.strategyMargins.reduce((sum, margin) => sum + margin, 0)
+
   new Chart(canvas, {
     type: "line",
     data: {
@@ -319,6 +390,17 @@ export function createUsedMarginsChart(
           tension: 0.1,
           pointRadius: 0,
         },
+        {
+          label: "Sum of Margins",
+          data: portfolioData.usedMargins.map(() => sumOfMargins),
+          borderColor: "rgba(255, 99, 132, 1)",
+          backgroundColor: "rgba(255, 99, 132, 0.1)",
+          borderWidth: 2,
+          borderDash: [5, 5],
+          fill: false,
+          tension: 0,
+          pointRadius: 0,
+        },
       ],
     },
     options: {
@@ -332,7 +414,7 @@ export function createUsedMarginsChart(
         },
         tooltip: {
           callbacks: {
-            label: (context) => `Used Margin: ${formatCurrency(context.parsed.y, currency)}`,
+            label: (context) => `${context.dataset.label}: ${formatCurrency(context.parsed.y, currency)}`,
           },
         },
       },
@@ -342,7 +424,7 @@ export function createUsedMarginsChart(
           ticks: { maxTicksLimit: 10 },
         },
         y: {
-          title: { display: true, text: `Used Margin (${currency})` },
+          title: { display: true, text: `Margin (${currency})` },
           ticks: {
             callback: (value) => formatCurrency(value as number, currency),
           },
@@ -362,11 +444,30 @@ export function createSingleStrategyCharts(
 
   portfolioData.strategies.forEach((strategy, index) => {
     const chartContainer = document.createElement("div")
-    chartContainer.className = "h-64"
+    chartContainer.className = "h-80" // Cambiato da h-64 a h-80
 
     const canvas = document.createElement("canvas")
     chartContainer.appendChild(canvas)
     container.appendChild(chartContainer)
+
+    // Debug: log dei dati per verificare
+    console.log(`Strategy ${strategy.name}:`, {
+      trades: strategy.trades.length,
+      equity: strategy.equity,
+      netProfit: strategy.netProfit,
+    })
+
+    // Calcola l'equity curve cumulativa se non è già calcolata correttamente
+    let equityData = strategy.equity
+    if (equityData.length === 0 || equityData.every((val) => val === equityData[0])) {
+      // Ricalcola l'equity curve se i dati sembrano errati
+      equityData = []
+      let cumulativeProfit = 0
+      for (const trade of strategy.trades) {
+        cumulativeProfit += trade.profit
+        equityData.push(cumulativeProfit)
+      }
+    }
 
     const labels = strategy.trades.map((_, i) => i + 1)
 
@@ -377,7 +478,7 @@ export function createSingleStrategyCharts(
         datasets: [
           {
             label: strategy.name,
-            data: strategy.equity,
+            data: equityData,
             borderColor: `hsl(${(index * 360) / portfolioData.strategies.length}, 70%, 50%)`,
             backgroundColor: `hsla(${(index * 360) / portfolioData.strategies.length}, 70%, 50%, 0.1)`,
             borderWidth: 2,
@@ -408,6 +509,7 @@ export function createSingleStrategyCharts(
           },
           y: {
             title: { display: true, text: `Equity (${currency})` },
+            beginAtZero: false, // Non iniziare da zero per vedere meglio le variazioni
             ticks: {
               callback: (value) => formatCurrency(value as number, currency),
             },
