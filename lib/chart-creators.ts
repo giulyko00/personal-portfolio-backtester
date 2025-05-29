@@ -155,38 +155,93 @@ export function createMonthlyReturnsTable(
   portfolioData: PortfolioData,
   currency: "USD" | "EUR" = "USD",
 ): void {
-  // Clear any existing content
-  container.innerHTML = ""
+  const { monthlyReturns } = portfolioData
 
-  const table = document.createElement("table")
-  table.className = "w-full text-sm"
+  // Group returns by year and month
+  const yearMonthMap: { [year: string]: { [month: string]: number } } = {}
 
-  const thead = document.createElement("thead")
-  const tbody = document.createElement("tbody")
+  Object.entries(monthlyReturns).forEach(([yearMonth, value]) => {
+    const [year, month] = yearMonth.split("-")
 
-  // Create header
-  const headerRow = document.createElement("tr")
-  headerRow.className = "bg-gray-100 dark:bg-gray-800"
-  headerRow.innerHTML = `
-    <th class="px-4 py-2 text-left">Month</th>
-    <th class="px-4 py-2 text-right">Return</th>
-  `
-  thead.appendChild(headerRow)
+    if (!yearMonthMap[year]) {
+      yearMonthMap[year] = {}
+    }
 
-  // Create rows for monthly returns
-  Object.entries(portfolioData.monthlyReturns).forEach(([month, returns], index) => {
-    const row = document.createElement("tr")
-    row.className = index % 2 === 0 ? "bg-gray-100 dark:bg-gray-800" : ""
-    row.innerHTML = `
-      <td class="px-4 py-2">${month}</td>
-      <td class="px-4 py-2 text-right ${returns >= 0 ? "text-green-600" : "text-red-600"}">${formatCurrency(returns, currency)}</td>
-    `
-    tbody.appendChild(row)
+    yearMonthMap[year][month] = value
   })
 
-  table.appendChild(thead)
-  table.appendChild(tbody)
-  container.appendChild(table)
+  // Create the table HTML
+  let tableHtml = `
+    <table class="w-full text-sm">
+      <thead>
+        <tr>
+          <th class="px-2 py-2 text-left bg-gray-100 dark:bg-gray-800">Year</th>
+          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Jan</th>
+          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Feb</th>
+          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Mar</th>
+          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Apr</th>
+          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">May</th>
+          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Jun</th>
+          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Jul</th>
+          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Aug</th>
+          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Sep</th>
+          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Oct</th>
+          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Nov</th>
+          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Dec</th>
+          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+  `
+
+  // Sort years in ascending order (oldest first)
+  const years = Object.keys(yearMonthMap).sort((a, b) => Number.parseInt(a) - Number.parseInt(b))
+
+  years.forEach((year) => {
+    const monthData = yearMonthMap[year]
+    let yearTotal = 0
+
+    tableHtml += `<tr>
+      <td class="px-2 py-2 font-medium">${year}</td>
+    `
+
+    for (let month = 1; month <= 12; month++) {
+      const monthStr = String(month).padStart(2, "0")
+      const value = monthData[monthStr] || 0
+      yearTotal += value
+
+      const cellClass =
+        value > 0 ? "bg-green-100 dark:bg-green-900/30" : value < 0 ? "bg-red-100 dark:bg-red-900/30" : ""
+
+      tableHtml += `
+        <td class="px-2 py-2 text-right ${cellClass}">
+          ${value ? formatCurrency(value, currency) : ""}
+        </td>
+      `
+    }
+
+    // Year total
+    const totalCellClass =
+      yearTotal > 0
+        ? "bg-green-200 dark:bg-green-900/50 font-medium"
+        : yearTotal < 0
+          ? "bg-red-200 dark:bg-red-900/50 font-medium"
+          : "font-medium"
+
+    tableHtml += `
+      <td class="px-2 py-2 text-right ${totalCellClass}">
+        ${formatCurrency(yearTotal, currency)}
+      </td>
+    </tr>
+    `
+  })
+
+  tableHtml += `
+      </tbody>
+    </table>
+  `
+
+  container.innerHTML = tableHtml
 }
 
 export function createCorrelationMatrix(container: HTMLElement, portfolioData: PortfolioData): void {
