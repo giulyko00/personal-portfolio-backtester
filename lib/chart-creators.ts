@@ -444,7 +444,7 @@ export function createSingleStrategyCharts(
 
   portfolioData.strategies.forEach((strategy, index) => {
     const chartContainer = document.createElement("div")
-    chartContainer.style.height = "320px" // 320px equivale a h-80 in Tailwind
+    chartContainer.style.height = "384px" // 320px equivale a h-80 in Tailwind
 
     const canvas = document.createElement("canvas")
     chartContainer.appendChild(canvas)
