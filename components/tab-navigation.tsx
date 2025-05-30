@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { BarChart3, LineChart, SplitSquareVertical, Shuffle } from "lucide-react"
+import { BarChart3, LineChart, SplitSquareVertical, Shuffle, AlertTriangle } from "lucide-react"
 
 interface TabNavigationProps {
   activeTab: string
@@ -53,6 +53,17 @@ export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
       >
         <Shuffle className="h-4 w-4" />
         <span>Monte Carlo Simulation</span>
+      </Button>
+
+      <Button
+        variant={activeTab === "stress-test" ? "default" : "ghost"}
+        className={`flex items-center gap-2 rounded-none border-b-2 px-4 py-2 ${
+          activeTab === "stress-test" ? "border-primary font-medium" : "border-transparent"
+        }`}
+        onClick={() => onTabChange("stress-test")}
+      >
+        <AlertTriangle className="h-4 w-4" />
+        <span>Stress Test</span>
       </Button>
     </div>
   )

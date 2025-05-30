@@ -15,11 +15,6 @@ export default function Home() {
             #TODO
           </h3>
           <ul className="list-disc list-inside space-y-2 text-md">
-            <li>Correlazione di Spearman vs Pearson</li>
-            <li>
-              Simulazione di eliminazione del 5% (o altro numero) dei best trades
-              come stress/robustness test
-            </li>
             <li>
               Algoritmo di ottimizzazione portafoglio in base alle strategie inserite,
               variando i pesi e massimizzando una metrica, mirando a un max drawdown percentuale

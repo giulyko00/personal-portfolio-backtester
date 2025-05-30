@@ -2,6 +2,7 @@ import { Chart, registerables } from "chart.js"
 import "chartjs-adapter-date-fns"
 import type { PortfolioData } from "@/types/portfolio"
 import { formatCurrency } from "@/lib/formatters"
+import { calculateStrategyCorrelationMatrix } from "@/lib/correlation-utils"
 
 // Register all Chart.js components
 Chart.register(...registerables)
@@ -244,9 +245,44 @@ export function createMonthlyReturnsTable(
   container.innerHTML = tableHtml
 }
 
-export function createCorrelationMatrix(container: HTMLElement, portfolioData: PortfolioData): void {
+export function createCorrelationMatrix(
+  container: HTMLElement,
+  portfolioData: PortfolioData,
+  correlationType: "pearson" | "spearman" = "pearson",
+): void {
   // Clear any existing content
   container.innerHTML = ""
+
+  // Create the control for switching the correlation type
+  const controlsDiv = document.createElement("div")
+  controlsDiv.className = "mb-4 flex items-center gap-4"
+
+  const label = document.createElement("label")
+  label.textContent = "Correlation Type:"
+  label.className = "text-sm font-medium"
+
+  const select = document.createElement("select")
+  select.className = "px-3 py-1 border border-gray-300 rounded-md text-sm"
+  select.innerHTML = `
+    <option value="pearson" ${correlationType === "pearson" ? "selected" : ""}>Pearson</option>
+    <option value="spearman" ${correlationType === "spearman" ? "selected" : ""}>Spearman</option>
+  `
+
+  select.addEventListener("change", (e) => {
+    const newType = (e.target as HTMLSelectElement).value as "pearson" | "spearman"
+    createCorrelationMatrix(container, portfolioData, newType)
+  })
+
+  controlsDiv.appendChild(label)
+  controlsDiv.appendChild(select)
+  container.appendChild(controlsDiv)
+
+  // Recalculate the correlation matrix with the selected type
+  const dfsEquityStrategies = portfolioData.strategies.map((s) => ({
+    exitTime: s.trades.map((t) => t.exitTime),
+    equity: s.equity,
+  }))
+  const correlationMatrix = calculateStrategyCorrelationMatrix(dfsEquityStrategies, correlationType)
 
   const table = document.createElement("table")
   table.className = "w-full text-xs"
@@ -268,7 +304,7 @@ export function createCorrelationMatrix(container: HTMLElement, portfolioData: P
     row.innerHTML = `<td class="px-2 py-1 font-medium">${strategy.name.substring(0, 8)}</td>`
 
     portfolioData.strategies.forEach((_, j) => {
-      const correlation = portfolioData.correlationMatrix[i][j]
+      const correlation = correlationMatrix[i][j]
       let bgColor = "bg-white"
 
       if (correlation >= 0.7) bgColor = "bg-red-400"
@@ -450,7 +486,7 @@ export function createSingleStrategyCharts(
     chartContainer.appendChild(canvas)
     container.appendChild(chartContainer)
 
-    // Preparare i dati con l'asse X basato sul tempo
+    // Prepare data with time-based x-axis
     const data = strategy.equity.map((equity, tradeIndex) => ({
       x: strategy.trades[tradeIndex]?.exitTime,
       y: equity,
