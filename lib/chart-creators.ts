@@ -74,9 +74,10 @@ export function createEquityCurveChart(
         x: {
           type: "time",
           time: {
-            unit: "day",
+            unit: "month",
             displayFormats: {
-              day: "MMM dd",
+              day: "MM/yyyy",
+              month: "MM/yyyy",
             },
           },
           title: { display: true, text: "Date" },
@@ -102,16 +103,19 @@ export function createDrawdownChart(
   const canvas = document.createElement("canvas")
   container.appendChild(canvas)
 
-  const labels = portfolioData.portfolioTrades.map((_, index) => index + 1)
+  // Prepare data with time-based x-axis
+  const data = portfolioData.drawdowns.map((drawdown, index) => ({
+    x: portfolioData.portfolioTrades[index]?.exitTime,
+    y: drawdown,
+  }))
 
   new Chart(canvas, {
     type: "line",
     data: {
-      labels,
       datasets: [
         {
           label: "Drawdown",
-          data: portfolioData.drawdowns,
+          data: data,
           borderColor: "rgba(255, 99, 132, 1)",
           backgroundColor: "rgba(255, 99, 132, 0.2)",
           borderWidth: 2,
@@ -138,7 +142,15 @@ export function createDrawdownChart(
       },
       scales: {
         x: {
-          title: { display: true, text: "Trade Number" },
+          type: "time",
+          time: {
+            unit: "month",
+            displayFormats: {
+              day: "MM/yyyy",
+              month: "MM/yyyy",
+            },
+          },
+          title: { display: true, text: "Date" },
         },
         y: {
           title: { display: true, text: `Drawdown (${currency})` },
@@ -527,9 +539,10 @@ export function createSingleStrategyCharts(
           x: {
             type: "time",
             time: {
-              unit: "day",
+              unit: "month",
               displayFormats: {
-                day: "MMM dd",
+                day: "MM/yyyy",
+                month: "MM/yyyy",
               },
             },
             title: { display: true, text: "Date" },
