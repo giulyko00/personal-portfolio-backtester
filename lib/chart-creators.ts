@@ -170,53 +170,46 @@ export function createMonthlyReturnsTable(
 ): void {
   const { monthlyReturns } = portfolioData
 
-  // Group returns by year and month
   const yearMonthMap: { [year: string]: { [month: string]: number } } = {}
 
   Object.entries(monthlyReturns).forEach(([yearMonth, value]) => {
     const [year, month] = yearMonth.split("-")
-
     if (!yearMonthMap[year]) {
       yearMonthMap[year] = {}
     }
-
     yearMonthMap[year][month] = value
   })
 
-  // Create the table HTML
   let tableHtml = `
-    <table class="w-full text-sm">
+    <table class="w-full text-xs">
       <thead>
         <tr>
-          <th class="px-2 py-2 text-left bg-gray-100 dark:bg-gray-800">Year</th>
-          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Jan</th>
-          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Feb</th>
-          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Mar</th>
-          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Apr</th>
-          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">May</th>
-          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Jun</th>
-          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Jul</th>
-          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Aug</th>
-          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Sep</th>
-          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Oct</th>
-          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Nov</th>
-          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Dec</th>
-          <th class="px-2 py-2 text-right bg-gray-100 dark:bg-gray-800">Total</th>
+          <th class="px-1 py-1 text-left bg-gray-100 dark:bg-gray-800">Year</th>
+          <th class="px-1 py-1 text-right bg-gray-100 dark:bg-gray-800">Jan</th>
+          <th class="px-1 py-1 text-right bg-gray-100 dark:bg-gray-800">Feb</th>
+          <th class="px-1 py-1 text-right bg-gray-100 dark:bg-gray-800">Mar</th>
+          <th class="px-1 py-1 text-right bg-gray-100 dark:bg-gray-800">Apr</th>
+          <th class="px-1 py-1 text-right bg-gray-100 dark:bg-gray-800">May</th>
+          <th class="px-1 py-1 text-right bg-gray-100 dark:bg-gray-800">Jun</th>
+          <th class="px-1 py-1 text-right bg-gray-100 dark:bg-gray-800">Jul</th>
+          <th class="px-1 py-1 text-right bg-gray-100 dark:bg-gray-800">Aug</th>
+          <th class="px-1 py-1 text-right bg-gray-100 dark:bg-gray-800">Sep</th>
+          <th class="px-1 py-1 text-right bg-gray-100 dark:bg-gray-800">Oct</th>
+          <th class="px-1 py-1 text-right bg-gray-100 dark:bg-gray-800">Nov</th>
+          <th class="px-1 py-1 text-right bg-gray-100 dark:bg-gray-800">Dec</th>
+          <th class="px-1 py-1 text-right bg-gray-100 dark:bg-gray-800">Total</th>
         </tr>
       </thead>
       <tbody>
   `
 
-  // Sort years in ascending order (oldest first)
   const years = Object.keys(yearMonthMap).sort((a, b) => Number.parseInt(a) - Number.parseInt(b))
 
   years.forEach((year) => {
     const monthData = yearMonthMap[year]
     let yearTotal = 0
 
-    tableHtml += `<tr>
-      <td class="px-2 py-2 font-medium">${year}</td>
-    `
+    tableHtml += `<tr><td class="px-1 py-1 font-medium">${year}</td>`
 
     for (let month = 1; month <= 12; month++) {
       const monthStr = String(month).padStart(2, "0")
@@ -227,13 +220,12 @@ export function createMonthlyReturnsTable(
         value > 0 ? "bg-green-100 dark:bg-green-900/30" : value < 0 ? "bg-red-100 dark:bg-red-900/30" : ""
 
       tableHtml += `
-        <td class="px-2 py-2 text-right ${cellClass}">
+        <td class="px-1 py-1 text-right ${cellClass}">
           ${value ? formatCurrency(value, currency) : ""}
         </td>
       `
     }
 
-    // Year total
     const totalCellClass =
       yearTotal > 0
         ? "bg-green-200 dark:bg-green-900/50 font-medium"
@@ -242,7 +234,7 @@ export function createMonthlyReturnsTable(
           : "font-medium"
 
     tableHtml += `
-      <td class="px-2 py-2 text-right ${totalCellClass}">
+      <td class="px-1 py-1 text-right ${totalCellClass}">
         ${formatCurrency(yearTotal, currency)}
       </td>
     </tr>
@@ -256,6 +248,7 @@ export function createMonthlyReturnsTable(
 
   container.innerHTML = tableHtml
 }
+
 
 export function createCorrelationMatrix(
   container: HTMLElement,
