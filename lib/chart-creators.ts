@@ -289,7 +289,7 @@ export function createCorrelationMatrix(
   const correlationMatrix = calculateStrategyCorrelationMatrix(dfsEquityStrategies, correlationType)
 
   const tableContainer = document.createElement("div")
-  tableContainer.className = "overflow-auto max-h-fu border border-gray-200 rounded-md"
+  tableContainer.className = "overflow-auto max-h-full border border-gray-200 rounded-md"
 
   const table = document.createElement("table")
   table.className = "w-full text-xs"
