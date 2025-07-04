@@ -249,7 +249,6 @@ export function createMonthlyReturnsTable(
   container.innerHTML = tableHtml
 }
 
-
 export function createCorrelationMatrix(
   container: HTMLElement,
   portfolioData: PortfolioData,
@@ -289,6 +288,9 @@ export function createCorrelationMatrix(
   }))
   const correlationMatrix = calculateStrategyCorrelationMatrix(dfsEquityStrategies, correlationType)
 
+  const tableContainer = document.createElement("div")
+  tableContainer.className = "overflow-auto max-h-fu border border-gray-200 rounded-md"
+
   const table = document.createElement("table")
   table.className = "w-full text-xs"
 
@@ -325,7 +327,8 @@ export function createCorrelationMatrix(
 
   table.appendChild(thead)
   table.appendChild(tbody)
-  container.appendChild(table)
+  tableContainer.appendChild(table)
+  container.appendChild(tableContainer)
 }
 
 export function createReturnsDistributionChart(
