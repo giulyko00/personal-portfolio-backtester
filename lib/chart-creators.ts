@@ -18,9 +18,7 @@ export function createEquityCurveChart(
   const canvas = document.createElement("canvas")
   container.appendChild(canvas)
 
-  // Prepare data for equity curve with time-based x-axis
-  const labels = portfolioData.portfolioTrades.map((trade) => trade.exitTime)
-
+  // Prepare data for portfolio equity curve only
   const datasets = [
     {
       label: "Portfolio Equity",
@@ -35,19 +33,6 @@ export function createEquityCurveChart(
       tension: 0.1,
       pointRadius: 0,
     },
-    ...portfolioData.strategies.map((strategy, index) => ({
-      label: strategy.name,
-      data: strategy.equity.map((equity, tradeIndex) => ({
-        x: strategy.trades[tradeIndex]?.exitTime,
-        y: equity,
-      })),
-      borderColor: `hsl(${(index * 360) / portfolioData.strategies.length}, 70%, 50%)`,
-      backgroundColor: `hsla(${(index * 360) / portfolioData.strategies.length}, 70%, 50%, 0.1)`,
-      borderWidth: 1,
-      fill: false,
-      tension: 0.1,
-      pointRadius: 0,
-    })),
   ]
 
   new Chart(canvas, {
@@ -59,7 +44,75 @@ export function createEquityCurveChart(
       plugins: {
         title: {
           display: true,
-          text: "Equity Curves",
+          text: "Portfolio Equity Curve",
+          font: { size: 16, weight: "bold" },
+        },
+        tooltip: {
+          mode: "index",
+          intersect: false,
+          callbacks: {
+            label: (context) => `${context.dataset.label}: ${formatCurrency(context.parsed.y, currency)}`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          type: "time",
+          time: {
+            unit: "month",
+            displayFormats: {
+              day: "MM/yyyy",
+              month: "MM/yyyy",
+            },
+          },
+          title: { display: true, text: "Date" },
+        },
+        y: {
+          title: { display: true, text: `Equity (${currency})` },
+          ticks: {
+            callback: (value) => formatCurrency(value as number, currency),
+          },
+        },
+      },
+    },
+  })
+}
+
+export function createStrategiesEquityCurveChart(
+  container: HTMLElement,
+  portfolioData: PortfolioData,
+  currency: "USD" | "EUR" = "USD",
+): void {
+  // Clear any existing chart
+  container.innerHTML = ""
+  const canvas = document.createElement("canvas")
+  container.appendChild(canvas)
+
+  // Prepare data for individual strategy equity curves only
+  const datasets = portfolioData.strategies.map((strategy, index) => ({
+    label: strategy.name,
+    data: strategy.equity.map((equity, tradeIndex) => ({
+      x: strategy.trades[tradeIndex]?.exitTime,
+      y: equity,
+    })),
+    borderColor: `hsl(${(index * 360) / portfolioData.strategies.length}, 70%, 50%)`,
+    backgroundColor: `hsla(${(index * 360) / portfolioData.strategies.length}, 70%, 50%, 0.1)`,
+    borderWidth: 2,
+    fill: false,
+    tension: 0.1,
+    pointRadius: 0,
+  }))
+
+  new Chart(canvas, {
+    type: "line",
+    data: { datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        title: {
+          display: true,
+          text: "Individual Strategies Equity Curves",
           font: { size: 16, weight: "bold" },
         },
         tooltip: {
@@ -289,7 +342,7 @@ export function createCorrelationMatrix(
   const correlationMatrix = calculateStrategyCorrelationMatrix(dfsEquityStrategies, correlationType)
 
   const tableContainer = document.createElement("div")
-  tableContainer.className = "overflow-auto max-h-full border border-gray-200 rounded-md"
+  tableContainer.className = "overflow-auto max-h-64 border border-gray-200 rounded-md"
 
   const table = document.createElement("table")
   table.className = "w-full text-xs"

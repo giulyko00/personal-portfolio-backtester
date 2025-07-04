@@ -6,6 +6,7 @@ import type { PortfolioData } from "@/types/portfolio"
 import { formatCurrency } from "@/lib/formatters"
 import {
   createEquityCurveChart,
+  createStrategiesEquityCurveChart,
   createDrawdownChart,
   createMonthlyReturnsTable,
   createCorrelationMatrix,
@@ -18,6 +19,7 @@ interface EquityCurveTabProps {
 
 export function EquityCurveTab({ portfolioData, currency = "USD" }: EquityCurveTabProps) {
   const equityChartRef = useRef<HTMLDivElement>(null)
+  const strategiesChartRef = useRef<HTMLDivElement>(null)
   const drawdownChartRef = useRef<HTMLDivElement>(null)
   const monthlyReturnsRef = useRef<HTMLDivElement>(null)
   const correlationMatrixRef = useRef<HTMLDivElement>(null)
@@ -26,12 +28,14 @@ export function EquityCurveTab({ portfolioData, currency = "USD" }: EquityCurveT
     if (
       portfolioData &&
       equityChartRef.current &&
+      strategiesChartRef.current &&
       drawdownChartRef.current &&
       monthlyReturnsRef.current &&
       correlationMatrixRef.current
     ) {
       // Create charts using the chart creation functions
       createEquityCurveChart(equityChartRef.current, portfolioData, currency)
+      createStrategiesEquityCurveChart(strategiesChartRef.current, portfolioData, currency)
       createDrawdownChart(drawdownChartRef.current, portfolioData, currency)
       createMonthlyReturnsTable(monthlyReturnsRef.current, portfolioData, currency)
       createCorrelationMatrix(correlationMatrixRef.current, portfolioData)
@@ -41,6 +45,9 @@ export function EquityCurveTab({ portfolioData, currency = "USD" }: EquityCurveT
     return () => {
       if (equityChartRef.current) {
         equityChartRef.current.innerHTML = ""
+      }
+      if (strategiesChartRef.current) {
+        strategiesChartRef.current.innerHTML = ""
       }
       if (drawdownChartRef.current) {
         drawdownChartRef.current.innerHTML = ""
@@ -60,7 +67,8 @@ export function EquityCurveTab({ portfolioData, currency = "USD" }: EquityCurveT
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div className="md:col-span-1 space-y-6">
-        <div className="h-[640px]" ref={equityChartRef}></div>
+        <div className="h-[500px]" ref={equityChartRef}></div>
+        <div className="h-[500px]" ref={strategiesChartRef}></div>
         <div className="h-64" ref={drawdownChartRef}></div>
       </div>
 
@@ -159,39 +167,38 @@ export function EquityCurveTab({ portfolioData, currency = "USD" }: EquityCurveT
       </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-8 gap-6 md:col-span-2">
-    <Card className="md:col-span-5">
-      <CardHeader>
-        <CardTitle>Monthly Returns</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div ref={monthlyReturnsRef} className="h-[300px] overflow-auto"></div>
-      </CardContent>
-    </Card>
+        <Card className="md:col-span-5">
+          <CardHeader>
+            <CardTitle>Monthly Returns</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div ref={monthlyReturnsRef} className="h-[300px] overflow-auto"></div>
+          </CardContent>
+        </Card>
 
-    <Card className="md:col-span-3">
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle>Correlation Matrix</CardTitle>
-        <div className="text-xs text-gray-500 flex flex-wrap gap-1 justify-end">
-          <div className="flex items-center mr-1">
-            <div className="w-3 h-3 mr-1 bg-red-400"></div>≥0.7
-          </div>
-          <div className="flex items-center mr-1">
-            <div className="w-3 h-3 mr-1 bg-yellow-100"></div>≥0.3
-          </div>
-          <div className="flex items-center mr-1">
-            <div className="w-3 h-3 mr-1 bg-green-100"></div>≤-0.3
-          </div>
-          <div className="flex items-center">
-            <div className="w-3 h-3 mr-1 bg-green-200"></div>≤-0.7
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div ref={correlationMatrixRef} className="h-[300px]"></div>
-      </CardContent>
-    </Card>
-  </div>
-
+        <Card className="md:col-span-3">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle>Correlation Matrix</CardTitle>
+            <div className="text-xs text-gray-500 flex flex-wrap gap-1 justify-end">
+              <div className="flex items-center mr-1">
+                <div className="w-3 h-3 mr-1 bg-red-500"></div>≥0.7
+              </div>
+              <div className="flex items-center mr-1">
+                <div className="w-3 h-3 mr-1 bg-yellow-100"></div>≥0.3
+              </div>
+              <div className="flex items-center mr-1">
+                <div className="w-3 h-3 mr-1 bg-green-100"></div>≤-0.3
+              </div>
+              <div className="flex items-center">
+                <div className="w-3 h-3 mr-1 bg-green-200"></div>≤-0.7
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div ref={correlationMatrixRef} className="h-[300px]"></div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
