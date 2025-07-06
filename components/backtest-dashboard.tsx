@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { FileUploader, type ImportFormat } from "@/components/file-uploader"
+import { FileUploader, type ImportFormat, type MarginType } from "@/components/file-uploader"
 import { DateRangeFilter } from "@/components/date-range-filter"
 import { TabNavigation } from "@/components/tab-navigation"
 import { EquityCurveTab } from "@/components/tabs/equity-curve-tab"
@@ -36,7 +36,7 @@ export function BacktestDashboard() {
     initializeExchangeRate().catch(console.error)
   }, [])
 
-  const handleFilesUploaded = async (files: File[], quantities: number[], format: ImportFormat) => {
+  const handleFilesUploaded = async (files: File[], quantities: number[], format: ImportFormat, fileMarginTypes: MarginType[]) => {
     setIsLoading(true)
     setError(null)
 
@@ -46,22 +46,26 @@ export function BacktestDashboard() {
 
       switch (format) {
         case "tradestation":
-          processedData = await processTradeStationCSV(files, quantities, marginType)
+          processedData = await processTradeStationCSV(files, quantities, marginType, fileMarginTypes)
           break
         case "multicharts":
-          processedData = await processMultiChartsCSV(files, quantities, marginType)
+          processedData = await processMultiChartsCSV(files, quantities, marginType, fileMarginTypes)
           break
         case "ninjatrader":
-          processedData = await processNinjaTraderCSV(files, quantities, marginType)
+          processedData = await processNinjaTraderCSV(files, quantities, marginType, fileMarginTypes)
           break
         default:
-          processedData = await processTradeStationCSV(files, quantities, marginType)
+          processedData = await processTradeStationCSV(files, quantities, marginType, fileMarginTypes)
       }
 
       setPortfolioData(processedData)
     } catch (error) {
       console.error(`Error processing ${format} files:`, error)
-      setError(error.message || `Error processing ${format} files. Please check the console for details.`)
+      setError(
+        error instanceof Error
+          ? error.message
+          : `Error processing ${format} files. Please check the console for details.`
+      )
       setPortfolioData(null)
     } finally {
       setIsLoading(false)
@@ -178,7 +182,7 @@ export function BacktestDashboard() {
               {exchangeRateLoading && <RefreshCw className="h-4 w-4 animate-spin text-gray-500" />}
             </div>
           </div>
-          <FileUploader onFilesUploaded={handleFilesUploaded} isLoading={isLoading} />
+          <FileUploader onFilesUploaded={handleFilesUploaded} isLoading={isLoading} globalMarginType={marginType} />
         </>
       ) : (
         <>

@@ -10,15 +10,18 @@ import { Label } from "@/components/ui/label"
 import { Upload } from "lucide-react"
 
 export type ImportFormat = "tradestation" | "multicharts" | "ninjatrader"
+export type MarginType = "intraday" | "overnight"
 
 interface FileUploaderProps {
-  onFilesUploaded: (files: File[], quantities: number[], format: ImportFormat) => void
+  onFilesUploaded: (files: File[], quantities: number[], format: ImportFormat, fileMarginTypes: MarginType[]) => void
   isLoading: boolean
+  globalMarginType: MarginType
 }
 
-export function FileUploader({ onFilesUploaded, isLoading }: FileUploaderProps) {
+export function FileUploader({ onFilesUploaded, isLoading, globalMarginType }: FileUploaderProps) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [quantities, setQuantities] = useState<number[]>([])
+  const [fileMarginTypes, setFileMarginTypes] = useState<MarginType[]>([])
   const [selectedFormat, setSelectedFormat] = useState<ImportFormat>("tradestation")
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -26,6 +29,7 @@ export function FileUploader({ onFilesUploaded, isLoading }: FileUploaderProps) 
       const filesArray = Array.from(e.target.files)
       setSelectedFiles(filesArray)
       setQuantities(filesArray.map(() => 1)) // Default quantity is 1
+      setFileMarginTypes(filesArray.map(() => globalMarginType)) // Default to global margin type
     }
   }
 
@@ -35,9 +39,15 @@ export function FileUploader({ onFilesUploaded, isLoading }: FileUploaderProps) 
     setQuantities(newQuantities)
   }
 
+  const handleMarginTypeChange = (index: number, value: MarginType) => {
+    const newMarginTypes = [...fileMarginTypes]
+    newMarginTypes[index] = value
+    setFileMarginTypes(newMarginTypes)
+  }
+
   const handleSubmit = () => {
     if (selectedFiles.length > 0) {
-      onFilesUploaded(selectedFiles, quantities, selectedFormat)
+      onFilesUploaded(selectedFiles, quantities, selectedFormat, fileMarginTypes)
     }
   }
 
@@ -96,18 +106,43 @@ export function FileUploader({ onFilesUploaded, isLoading }: FileUploaderProps) 
               {selectedFiles.map((file, index) => (
                 <div key={index} className="flex items-center gap-4 p-2 border rounded-md">
                   <div className="flex-1 truncate">{file.name}</div>
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor={`quantity-${index}`} className="whitespace-nowrap">
-                      Quantity:
-                    </Label>
-                    <Input
-                      id={`quantity-${index}`}
-                      type="number"
-                      min="1"
-                      value={quantities[index]}
-                      onChange={(e) => handleQuantityChange(index, e.target.value)}
-                      className="w-20"
-                    />
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor={`quantity-${index}`} className="whitespace-nowrap">
+                        Quantity:
+                      </Label>
+                      <Input
+                        id={`quantity-${index}`}
+                        type="number"
+                        min="1"
+                        value={quantities[index]}
+                        onChange={(e) => handleQuantityChange(index, e.target.value)}
+                        className="w-20"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor={`margin-${index}`} className="whitespace-nowrap">
+                        Margin:
+                      </Label>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant={fileMarginTypes[index] === "intraday" ? "default" : "outline"}
+                          onClick={() => handleMarginTypeChange(index, "intraday")}
+                          size="sm"
+                          className={`py-1 h-8 ${fileMarginTypes[index] === "intraday" ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                        >
+                          Intraday
+                        </Button>
+                        <Button
+                          variant={fileMarginTypes[index] === "overnight" ? "default" : "outline"}
+                          onClick={() => handleMarginTypeChange(index, "overnight")}
+                          size="sm"
+                          className={`py-1 h-8 ${fileMarginTypes[index] === "overnight" ? "bg-amber-600 hover:bg-amber-700" : ""}`}
+                        >
+                          Overnight
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}

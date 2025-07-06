@@ -171,7 +171,7 @@ export function EquityCurveTab({ portfolioData, currency = "USD" }: EquityCurveT
           <CardHeader>
             <CardTitle>Monthly Returns</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3">
             <div ref={monthlyReturnsRef} className="h-[300px] overflow-auto"></div>
           </CardContent>
         </Card>
@@ -194,7 +194,7 @@ export function EquityCurveTab({ portfolioData, currency = "USD" }: EquityCurveT
               </div>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-3">
             <div ref={correlationMatrixRef} className="h-[300px]"></div>
           </CardContent>
         </Card>

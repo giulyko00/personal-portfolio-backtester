@@ -119,7 +119,8 @@ function getHardcodedMargins(marginType: "intraday" | "overnight" = "intraday"):
 export async function processTradeStationCSV(
   files: File[],
   quantities: number[],
-  marginType: "intraday" | "overnight" = "intraday",
+  globalMarginType: "intraday" | "overnight" = "intraday",
+  fileMarginTypes: ("intraday" | "overnight")[] = [],
 ): Promise<PortfolioData> {
   try {
     // This is a simplified implementation - in a real app, you would parse the CSV files
@@ -191,8 +192,8 @@ export async function processTradeStationCSV(
     }))
     const correlationMatrix = calculateStrategyCorrelation(dfsEquityStrategies, portfolioTrades)
 
-    // Calculate margins
-    const strategyMargins = await calculateStrategyMargins(strategies, marginType)
+    // Calculate strategy margins (using individual margin types for each file)
+    const strategyMargins = await calculateStrategyMargins(strategies, globalMarginType, fileMarginTypes)
     const usedMargins = await calculateUsedMargin(strategies, portfolioTrades, strategyMargins)
 
     // Calculate margin statistics
@@ -224,9 +225,13 @@ export async function processTradeStationCSV(
       margins,
       usedMargins,
     }
-  } catch (error) {
-    console.error("Error in processTradeStationCSV:", error)
-    throw new Error(`Error processing TradeStation files: ${error.message}`)
+  } catch (error: unknown) {
+    console.error("Error processing TradeStation files:", error)
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : "Failed to process TradeStation files"
+    )
   }
 }
 
@@ -234,7 +239,8 @@ export async function processTradeStationCSV(
 export async function processMultiChartsCSV(
   files: File[],
   quantities: number[],
-  marginType: "intraday" | "overnight" = "intraday",
+  globalMarginType: "intraday" | "overnight" = "intraday",
+  fileMarginTypes: ("intraday" | "overnight")[] = [],
 ): Promise<PortfolioData> {
   try {
     const strategies: Strategy[] = []
@@ -292,7 +298,7 @@ export async function processMultiChartsCSV(
       equity: s.equity,
     }))
     const correlationMatrix = calculateStrategyCorrelation(dfsEquityStrategies, portfolioTrades)
-    const strategyMargins = await calculateStrategyMargins(strategies, marginType)
+    const strategyMargins = await calculateStrategyMargins(strategies, globalMarginType, fileMarginTypes)
     const usedMargins = await calculateUsedMargin(strategies, portfolioTrades, strategyMargins)
     const margins = {
       strategyMargins,
@@ -321,9 +327,13 @@ export async function processMultiChartsCSV(
       margins,
       usedMargins,
     }
-  } catch (error) {
-    console.error("Error in processMultiChartsCSV:", error)
-    throw new Error(`Error processing MultiCharts files: ${error.message}`)
+  } catch (error: unknown) {
+    console.error("Error processing MultiCharts files:", error)
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : "Failed to process MultiCharts files"
+    )
   }
 }
 
@@ -331,7 +341,8 @@ export async function processMultiChartsCSV(
 export async function processNinjaTraderCSV(
   files: File[],
   quantities: number[],
-  marginType: "intraday" | "overnight" = "intraday",
+  globalMarginType: "intraday" | "overnight" = "intraday",
+  fileMarginTypes: ("intraday" | "overnight")[] = [],
 ): Promise<PortfolioData> {
   try {
     const strategies: Strategy[] = []
@@ -389,7 +400,7 @@ export async function processNinjaTraderCSV(
       equity: s.equity,
     }))
     const correlationMatrix = calculateStrategyCorrelation(dfsEquityStrategies, portfolioTrades)
-    const strategyMargins = await calculateStrategyMargins(strategies, marginType)
+    const strategyMargins = await calculateStrategyMargins(strategies, globalMarginType, fileMarginTypes)
     const usedMargins = await calculateUsedMargin(strategies, portfolioTrades, strategyMargins)
     const margins = {
       strategyMargins,
@@ -418,9 +429,13 @@ export async function processNinjaTraderCSV(
       margins,
       usedMargins,
     }
-  } catch (error) {
-    console.error("Error in processNinjaTraderCSV:", error)
-    throw new Error(`Error processing NinjaTrader files: ${error.message}`)
+  } catch (error: unknown) {
+    console.error("Error processing NinjaTrader files:", error)
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : "Failed to process NinjaTrader files"
+    )
   }
 }
 
@@ -878,23 +893,27 @@ function countMaxOccurrences(numbers: number[]): number {
 }
 
 // Helper function to calculate strategy margins
-async function calculateStrategyMargins(
+export async function calculateStrategyMargins(
   strategies: Strategy[],
-  marginType: "intraday" | "overnight" = "intraday",
+  globalMarginType: "intraday" | "overnight" = "intraday",
+  fileMarginTypes: ("intraday" | "overnight")[] = [],
 ): Promise<number[]> {
-  try {
-    // Get margins from API or cache
-    const margins = await getMargins(marginType)
+  // Ottieni tutti i margini per entrambi i tipi
+  const intradayMargins = await getMargins("intraday")
+  const overnightMargins = await getMargins("overnight")
 
-    // Calculate margin for each strategy
-    return strategies.map((strategy) => {
-      const symbol = strategy.symbol.toUpperCase()
-      const marginPerContract = margins[symbol] || 0
-      return marginPerContract * strategy.quantity
-    })
-  } catch (error) {
-    console.error("Error calculating strategy margins:", error)
-    // Return default margins in case of error
-    return strategies.map(() => (marginType === "intraday" ? 2500 : 5000)) // Default margin based on type
-  }
+  // Calcola il margine per ogni strategia in base al tipo specifico per il file
+  return strategies.map((strategy, index) => {
+    // Usa il tipo di margine specifico per questo file o il tipo globale se non specificato
+    const marginType = fileMarginTypes[index] || globalMarginType
+    const margins = marginType === "intraday" ? intradayMargins : overnightMargins
+
+    // Estrai il simbolo dal nome del file
+    const symbol = strategy.name.split("_")[0]?.toUpperCase() || ""
+    
+    // Cerca il margine per questo simbolo
+    const margin = margins[symbol] || 0
+    
+    return margin * strategy.quantity
+  })
 }

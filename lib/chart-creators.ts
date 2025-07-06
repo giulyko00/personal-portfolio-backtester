@@ -281,9 +281,9 @@ export function createMonthlyReturnsTable(
 
     const totalCellClass =
       yearTotal > 0
-        ? "bg-green-200 dark:bg-green-900/50 font-medium"
+        ? "bg-green-300 dark:bg-green-900/50 font-medium"
         : yearTotal < 0
-          ? "bg-red-200 dark:bg-red-900/50 font-medium"
+          ? "bg-red-300 dark:bg-red-900/50 font-medium"
           : "font-medium"
 
     tableHtml += `
