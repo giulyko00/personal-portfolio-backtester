@@ -2,11 +2,12 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import { Upload } from "lucide-react"
 
 export type ImportFormat = "tradestation" | "multicharts" | "ninjatrader"
@@ -23,6 +24,13 @@ export function FileUploader({ onFilesUploaded, isLoading, globalMarginType }: F
   const [quantities, setQuantities] = useState<number[]>([])
   const [fileMarginTypes, setFileMarginTypes] = useState<MarginType[]>([])
   const [selectedFormat, setSelectedFormat] = useState<ImportFormat>("tradestation")
+  
+  // Synchronize all file margin types with global margin type when it changes
+  useEffect(() => {
+    if (fileMarginTypes.length > 0) {
+      setFileMarginTypes(fileMarginTypes.map(() => globalMarginType))
+    }
+  }, [globalMarginType])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -39,9 +47,9 @@ export function FileUploader({ onFilesUploaded, isLoading, globalMarginType }: F
     setQuantities(newQuantities)
   }
 
-  const handleMarginTypeChange = (index: number, value: MarginType) => {
+  const handleMarginTypeChange = (index: number, checked: boolean) => {
     const newMarginTypes = [...fileMarginTypes]
-    newMarginTypes[index] = value
+    newMarginTypes[index] = checked ? "overnight" : "intraday"
     setFileMarginTypes(newMarginTypes)
   }
 
@@ -121,26 +129,18 @@ export function FileUploader({ onFilesUploaded, isLoading, globalMarginType }: F
                       />
                     </div>
                     <div className="flex items-center gap-2">
-                      <Label htmlFor={`margin-${index}`} className="whitespace-nowrap">
-                        Margin:
-                      </Label>
                       <div className="flex items-center space-x-2">
-                        <Button
-                          variant={fileMarginTypes[index] === "intraday" ? "default" : "outline"}
-                          onClick={() => handleMarginTypeChange(index, "intraday")}
-                          size="sm"
-                          className={`py-1 h-8 ${fileMarginTypes[index] === "intraday" ? "bg-blue-600 hover:bg-blue-700" : ""}`}
-                        >
+                        <Label htmlFor={`margin-${index}`} className="whitespace-nowrap">
                           Intraday
-                        </Button>
-                        <Button
-                          variant={fileMarginTypes[index] === "overnight" ? "default" : "outline"}
-                          onClick={() => handleMarginTypeChange(index, "overnight")}
-                          size="sm"
-                          className={`py-1 h-8 ${fileMarginTypes[index] === "overnight" ? "bg-amber-600 hover:bg-amber-700" : ""}`}
-                        >
+                        </Label>
+                        <Switch
+                          id={`margin-${index}`}
+                          checked={fileMarginTypes[index] === "overnight"}
+                          onCheckedChange={(checked) => handleMarginTypeChange(index, checked)}
+                        />
+                        <Label htmlFor={`margin-${index}`} className="whitespace-nowrap">
                           Overnight
-                        </Button>
+                        </Label>
                       </div>
                     </div>
                   </div>
