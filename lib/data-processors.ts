@@ -898,7 +898,7 @@ export async function calculateStrategyMargins(
   globalMarginType: "intraday" | "overnight" = "intraday",
   fileMarginTypes: ("intraday" | "overnight")[] = [],
 ): Promise<number[]> {
-  // Ottieni tutti i margini per entrambi i tipi
+  // Get margins for both types
   const intradayMargins = await getMargins("intraday")
   const overnightMargins = await getMargins("overnight")
 
@@ -908,10 +908,10 @@ export async function calculateStrategyMargins(
     const marginType = fileMarginTypes[index] || globalMarginType
     const margins = marginType === "intraday" ? intradayMargins : overnightMargins
 
-    // Estrai il simbolo dal nome del file
-    const symbol = strategy.name.split("_")[0]?.toUpperCase() || ""
+    // Extract symbol from strategy name
+    const symbol = strategy.symbol?.toUpperCase() || strategy.name.split(/[-_ ]/)[0]?.toUpperCase() || ""
     
-    // Cerca il margine per questo simbolo
+    // Get margin for this symbol
     const margin = margins[symbol] || 0
     
     return margin * strategy.quantity
