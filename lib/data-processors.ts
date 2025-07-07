@@ -664,17 +664,60 @@ function calculateStatistics(trades: Trade[], equity: number[], drawdowns: numbe
   // Calculate Sharpe and Sortino ratios
   const returns = []
   for (let i = 1; i < equity.length; i++) {
-    returns.push((equity[i] - equity[i - 1]) / Math.max(Math.abs(equity[i - 1]), 1))
+    // Calcola il rendimento percentuale (evita la divisione per zero)
+    if (equity[i - 1] !== 0) {
+      returns.push((equity[i] - equity[i - 1]) / equity[i - 1])
+    }
   }
 
-  const meanReturn = returns.reduce((sum, r) => sum + r, 0) / returns.length || 0
-  const stdDev = Math.sqrt(returns.reduce((sum, r) => sum + Math.pow(r - meanReturn, 2), 0) / returns.length || 0)
-  const downDev = Math.sqrt(
-    returns.filter((r) => r < 0).reduce((sum, r) => sum + Math.pow(r, 2), 0) / returns.length || 0,
+  // Filtra eventuali NaN o Infinity
+  const validReturns = returns.filter(r => isFinite(r))
+  
+  // Se non ci sono rendimenti validi, imposta tutto a zero
+  if (validReturns.length === 0) {
+    return {
+      totalNetProfit,
+      maxDrawdown,
+      meanDrawdown,
+      netProfitMaxDD: maxDrawdown === 0 ? Number.POSITIVE_INFINITY : totalNetProfit / maxDrawdown,
+      netProfitMeanDD: meanDrawdown === 0 ? Number.POSITIVE_INFINITY : totalNetProfit / meanDrawdown,
+      profitFactor,
+      winRatioPercentage,
+      riskRewardRatio,
+      totalTrades: trades.length,
+      averageTradeProfit: totalNetProfit / trades.length || 0,
+      maxConsecutiveWinningTrades,
+      maxConsecutiveLosingTrades,
+      tradesPerMonth,
+      netProfitPerMonth,
+      sharpeRatio: 0,
+      sortinoRatio: 0,
+    }
+  }
+  
+  const meanReturn = validReturns.reduce((sum, r) => sum + r, 0) / validReturns.length
+  
+  // Deviazione standard per Sharpe
+  const stdDev = Math.sqrt(
+    validReturns.reduce((sum, r) => sum + Math.pow(r - meanReturn, 2), 0) / validReturns.length
   )
-
-  const sharpeRatio = stdDev === 0 ? 0 : meanReturn / stdDev
-  const sortinoRatio = downDev === 0 ? 0 : meanReturn / downDev
+  
+  // Rendimenti negativi per Sortino
+  const negativeReturns = validReturns.filter((r) => r < 0)
+  
+  // Downside deviation per Sortino (usa solo i rendimenti negativi)
+  const downDev = negativeReturns.length > 0 ?
+    Math.sqrt(
+      negativeReturns.reduce((sum, r) => sum + Math.pow(r, 2), 0) / negativeReturns.length
+    ) : 0
+  
+  // Annualizzazione (assumendo rendimenti giornalieri)
+  // Se hai rendimenti su base diversa, modifica il fattore di annualizzazione
+  const annualizationFactor = Math.sqrt(252) // 252 giorni di trading in un anno
+  
+  // Calcolo degli indici
+  const sharpeRatio = stdDev !== 0 ? (meanReturn / stdDev) * annualizationFactor : 0
+  const sortinoRatio = downDev !== 0 ? (meanReturn / downDev) * annualizationFactor : 0
 
   return {
     totalNetProfit,
