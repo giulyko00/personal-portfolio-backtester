@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import "./globals.css"
 import { Analytics } from '@vercel/analytics/react'
+import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
   title: "Portfolio Backtester",
@@ -25,6 +26,7 @@ export default function RootLayout({
       <body>
         <Analytics />
         {children}
+        <Toaster />
       </body>
     </html>
   )

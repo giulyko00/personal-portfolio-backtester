@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import { Download, Loader2 } from "lucide-react"
 import html2canvas from "html2canvas"
@@ -29,7 +30,7 @@ export function ReportExporter({
   onRunStressTest 
 }: ReportExporterProps) {
   const [isExporting, setIsExporting] = useState(false)
-  const [exportProgress, setExportProgress] = useState("")
+  const { toast } = useToast()
 
   const captureElement = async (elementId: string, title: string): Promise<string> => {
     const element = document.getElementById(elementId)
@@ -55,19 +56,19 @@ export function ReportExporter({
 
   const generateReport = async () => {
     setIsExporting(true)
-    setExportProgress("Initializing...")
+    toast({ title: "Initializing Report Export..." })
 
     try {
       // Check if simulations need to be run and run them if missing
       if (!monteCarloResult) {
-        setExportProgress("Running Monte Carlo simulation...")
+        toast({ title: "Running Monte Carlo simulation..." })
         await onRunMonteCarloSimulation()
         // Wait a bit for the simulation to complete and UI to update
         await new Promise(resolve => setTimeout(resolve, 2000))
       }
 
       if (!stressTestResult) {
-        setExportProgress("Running Stress Test...")
+        toast({ title: "Running Stress Test..." })
         await onRunStressTest()
         // Wait a bit for the test to complete and UI to update
         await new Promise(resolve => setTimeout(resolve, 2000))
@@ -78,7 +79,7 @@ export function ReportExporter({
       const margin = 20
 
       // Cover page
-      setExportProgress("Creating cover...")
+      toast({ title: "Creating cover..." })
       pdf.setFontSize(24)
       pdf.text("Portfolio Backtest Report", pageWidth / 2, 40, { align: "center" })
       
@@ -124,7 +125,7 @@ export function ReportExporter({
 
       for (let i = 0; i < tabs.length; i++) {
         const tab = tabs[i]
-        setExportProgress(`Capturing ${tab.title}... (${i + 1}/${tabs.length})`)
+        toast({ title: `Capturing ${tab.title}...`, description: `(${i + 1}/${tabs.length})` })
 
         // Switch to the tab
         const tabButton = document.querySelector(`[data-tab="${tab.tabId}"]`) as HTMLButtonElement
@@ -188,19 +189,25 @@ export function ReportExporter({
         }
       }
 
-      setExportProgress("Finalizing PDF...")
+      toast({ title: "Finalizing PDF..." })
       
       // Save the PDF
       const fileName = `Portfolio_Backtest_Report_${currentDate.replace(/\//g, "-")}.pdf`
       pdf.save(fileName)
 
-      setExportProgress("Report exported successfully!")
-      setTimeout(() => setExportProgress(""), 3000)
+      toast({
+        title: "Report Exported Successfully!",
+        description: `The report has been saved as ${fileName}`,
+        variant: "success",
+      })
 
     } catch (error) {
       console.error("Error generating report:", error)
-      setExportProgress("Error during export")
-      setTimeout(() => setExportProgress(""), 3000)
+      toast({
+        title: "Error Generating Report",
+        description: "An unexpected error occurred. Please check the console for details.",
+        variant: "destructive",
+      })
     } finally {
       setIsExporting(false)
     }
@@ -222,11 +229,6 @@ export function ReportExporter({
         {isExporting ? "Exporting..." : "Export Report"}
       </Button>
       
-      {exportProgress && (
-        <span className="text-sm text-gray-600 dark:text-gray-400">
-          {exportProgress}
-        </span>
-      )}
     </div>
   )
 }
