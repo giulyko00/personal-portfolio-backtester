@@ -6,14 +6,28 @@ import { Download, Loader2 } from "lucide-react"
 import html2canvas from "html2canvas"
 import jsPDF from "jspdf"
 import type { PortfolioData } from "@/types/portfolio"
+import type { MonteCarloResult } from "@/lib/monte-carlo"
+import type { StressTestResult } from "@/lib/stress-test"
 
 interface ReportExporterProps {
   portfolioData: PortfolioData
   currency: "USD" | "EUR"
   marginType: "intraday" | "overnight"
+  monteCarloResult: MonteCarloResult | null
+  stressTestResult: StressTestResult | null
+  onRunMonteCarloSimulation: () => Promise<void>
+  onRunStressTest: () => Promise<void>
 }
 
-export function ReportExporter({ portfolioData, currency, marginType }: ReportExporterProps) {
+export function ReportExporter({ 
+  portfolioData, 
+  currency, 
+  marginType, 
+  monteCarloResult, 
+  stressTestResult, 
+  onRunMonteCarloSimulation, 
+  onRunStressTest 
+}: ReportExporterProps) {
   const [isExporting, setIsExporting] = useState(false)
   const [exportProgress, setExportProgress] = useState("")
 
@@ -44,6 +58,20 @@ export function ReportExporter({ portfolioData, currency, marginType }: ReportEx
     setExportProgress("Initializing...")
 
     try {
+      // Check if simulations need to be run and run them if missing
+      if (!monteCarloResult) {
+        setExportProgress("Running Monte Carlo simulation...")
+        await onRunMonteCarloSimulation()
+        // Wait a bit for the simulation to complete and UI to update
+        await new Promise(resolve => setTimeout(resolve, 2000))
+      }
+
+      if (!stressTestResult) {
+        setExportProgress("Running Stress Test...")
+        await onRunStressTest()
+        // Wait a bit for the test to complete and UI to update
+        await new Promise(resolve => setTimeout(resolve, 2000))
+      }
       const pdf = new jsPDF("p", "mm", "a4")
       const pageWidth = pdf.internal.pageSize.getWidth()
       const pageHeight = pdf.internal.pageSize.getHeight()

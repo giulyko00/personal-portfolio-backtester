@@ -13,6 +13,8 @@ import type { PortfolioData } from "@/types/portfolio"
 import { processTradeStationCSV, processMultiChartsCSV, processNinjaTraderCSV } from "@/lib/data-processors"
 import type { MonteCarloResult } from "@/lib/monte-carlo"
 import type { StressTestResult } from "@/lib/stress-test"
+import { runMonteCarloSimulation } from "@/lib/monte-carlo"
+import { runStressTest } from "@/lib/stress-test"
 import { initializeExchangeRate, updateExchangeRate } from "@/lib/formatters"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
@@ -153,6 +155,39 @@ export function BacktestDashboard() {
     }
   }
 
+  const handleRunMonteCarloSimulation = async () => {
+    if (!portfolioData || isMonteCarloRunning) return
+    
+    setIsMonteCarloRunning(true)
+    try {
+      const result = await runMonteCarloSimulation(
+        portfolioData.portfolioTrades,
+        1000, // Default simulations
+        "1y", // Default timeframe
+        "bootstrap" // Default method
+      )
+      setMonteCarloResult(result)
+    } catch (error) {
+      console.error("Error running Monte Carlo simulation:", error)
+    } finally {
+      setIsMonteCarloRunning(false)
+    }
+  }
+
+  const handleRunStressTest = async () => {
+    if (!portfolioData || isStressTestRunning) return
+    
+    setIsStressTestRunning(true)
+    try {
+      const result = await runStressTest(portfolioData, 5, marginType) // Default 5% removal
+      setStressTestResult(result)
+    } catch (error) {
+      console.error("Error running stress test:", error)
+    } finally {
+      setIsStressTestRunning(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {error && (
@@ -241,7 +276,11 @@ export function BacktestDashboard() {
               <ReportExporter 
                 portfolioData={portfolioData} 
                 currency={currency} 
-                marginType={marginType} 
+                marginType={marginType}
+                monteCarloResult={monteCarloResult}
+                stressTestResult={stressTestResult}
+                onRunMonteCarloSimulation={handleRunMonteCarloSimulation}
+                onRunStressTest={handleRunStressTest}
               />
               <Button variant="outline" className="flex items-center gap-2" onClick={handleReset}>
                 <RefreshCw className="h-4 w-4" />
