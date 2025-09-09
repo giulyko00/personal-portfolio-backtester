@@ -93,11 +93,25 @@ export function ReportExporter({
       // Portfolio summary
       if (portfolioData.strategies.length > 0) {
         pdf.text("Portfolio Strategies:", margin, 120)
-        let yPos = 135
-        portfolioData.strategies.forEach((strategy, index) => {
-          pdf.text(`${index + 1}. ${strategy.name} (Quantity: ${strategy.quantity})`, margin, yPos)
-          yPos += 10
-        })
+        const strategies = portfolioData.strategies;
+        const numStrategies = strategies.length;
+        const maxStrategiesPerColumn = 14; // Max items before a new column
+        const numColumns = Math.ceil(numStrategies / maxStrategiesPerColumn);
+        const columnWidth = (pageWidth - margin * 2) / numColumns;
+        let yPos = 130;
+
+        strategies.forEach((strategy, index) => {
+          const columnIndex = Math.floor(index / maxStrategiesPerColumn);
+          const itemInColumnIndex = index % maxStrategiesPerColumn;
+
+          if (itemInColumnIndex === 0 && columnIndex > 0) {
+            yPos = 130; // Reset y-position for new column
+          }
+
+          const xPos = margin + (columnIndex * columnWidth);
+          pdf.text(`${index + 1}. ${strategy.name} (Qty: ${strategy.quantity})`, xPos, yPos);
+          yPos += 8;
+        });
       }
 
       const tabs = [
