@@ -19,7 +19,6 @@ export default function Home() {
               Algoritmo di ottimizzazione portafoglio in base alle strategie inserite,
               variando i pesi e massimizzando una metrica, mirando a un max drawdown percentuale
             </li>
-            <li>Funzione export report</li>
           </ul>
         </section>
       </div>
