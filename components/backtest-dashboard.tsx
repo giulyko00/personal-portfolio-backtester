@@ -17,6 +17,7 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { RefreshCw } from "lucide-react"
 import { AlertCircle } from "lucide-react"
+import { ReportExporter } from "@/components/report-exporter"
 
 export function BacktestDashboard() {
   const [activeTab, setActiveTab] = useState("equity-curve")
@@ -229,6 +230,11 @@ export function BacktestDashboard() {
                   </Button>
                 )}
               </div>
+              <ReportExporter 
+                portfolioData={portfolioData} 
+                currency={currency} 
+                marginType={marginType} 
+              />
               <Button variant="outline" className="flex items-center gap-2" onClick={handleReset}>
                 <RefreshCw className="h-4 w-4" />
                 Reset Analysis
@@ -238,17 +244,31 @@ export function BacktestDashboard() {
 
           <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-            {activeTab === "equity-curve" && <EquityCurveTab portfolioData={portfolioData} currency={currency} />}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6" id="dashboard-content">
+            {activeTab === "equity-curve" && (
+              <div id="equity-curve-content">
+                <EquityCurveTab portfolioData={portfolioData} currency={currency} />
+              </div>
+            )}
             {activeTab === "returns-distribution" && (
-              <ReturnsDistributionTab portfolioData={portfolioData} currency={currency} />
+              <div id="returns-distribution-content">
+                <ReturnsDistributionTab portfolioData={portfolioData} currency={currency} />
+              </div>
             )}
             {activeTab === "single-strategies" && (
-              <SingleStrategiesTab portfolioData={portfolioData} currency={currency} />
+              <div id="single-strategies-content">
+                <SingleStrategiesTab portfolioData={portfolioData} currency={currency} />
+              </div>
             )}
-            {activeTab === "monte-carlo" && <MonteCarloTab portfolioData={portfolioData} currency={currency} />}
+            {activeTab === "monte-carlo" && (
+              <div id="monte-carlo-content">
+                <MonteCarloTab portfolioData={portfolioData} currency={currency} />
+              </div>
+            )}
             {activeTab === "stress-test" && (
-              <StressTestTab portfolioData={portfolioData} currency={currency} marginType={marginType} />
+              <div id="stress-test-content">
+                <StressTestTab portfolioData={portfolioData} currency={currency} marginType={marginType} />
+              </div>
             )}
           </div>
         </>

@@ -1,0 +1,190 @@
+"use client"
+
+import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Download, Loader2 } from "lucide-react"
+import html2canvas from "html2canvas"
+import jsPDF from "jspdf"
+import type { PortfolioData } from "@/types/portfolio"
+
+interface ReportExporterProps {
+  portfolioData: PortfolioData
+  currency: "USD" | "EUR"
+  marginType: "intraday" | "overnight"
+}
+
+export function ReportExporter({ portfolioData, currency, marginType }: ReportExporterProps) {
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportProgress, setExportProgress] = useState("")
+
+  const captureElement = async (elementId: string, title: string): Promise<string> => {
+    const element = document.getElementById(elementId)
+    if (!element) {
+      throw new Error(`Element with id ${elementId} not found`)
+    }
+
+    // Scroll element into view and wait for rendering
+    element.scrollIntoView({ behavior: "smooth", block: "start" })
+    await new Promise(resolve => setTimeout(resolve, 500))
+
+    const canvas = await html2canvas(element, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: "#ffffff",
+      width: element.scrollWidth,
+      height: element.scrollHeight,
+    })
+
+    return canvas.toDataURL("image/png", 0.95)
+  }
+
+  const generateReport = async () => {
+    setIsExporting(true)
+    setExportProgress("Initializing...")
+
+    try {
+      const pdf = new jsPDF("p", "mm", "a4")
+      const pageWidth = pdf.internal.pageSize.getWidth()
+      const pageHeight = pdf.internal.pageSize.getHeight()
+      const margin = 20
+
+      // Cover page
+      setExportProgress("Creating cover...")
+      pdf.setFontSize(24)
+      pdf.text("Portfolio Backtest Report", pageWidth / 2, 40, { align: "center" })
+      
+      pdf.setFontSize(16)
+      const currentDate = new Date().toLocaleDateString("en-GB")
+      pdf.text(`Generated on: ${currentDate}`, pageWidth / 2, 60, { align: "center" })
+      
+      pdf.setFontSize(12)
+      pdf.text(`Currency: ${currency}`, pageWidth / 2, 80, { align: "center" })
+      pdf.text(`Margin Type: ${marginType === "intraday" ? "Intraday" : "Overnight"}`, pageWidth / 2, 90, { align: "center" })
+      
+      // Portfolio summary
+      if (portfolioData.strategies.length > 0) {
+        pdf.text("Portfolio Strategies:", margin, 120)
+        let yPos = 135
+        portfolioData.strategies.forEach((strategy, index) => {
+          pdf.text(`${index + 1}. ${strategy.name} (Quantity: ${strategy.quantity})`, margin, yPos)
+          yPos += 10
+        })
+      }
+
+      const tabs = [
+        { id: "equity-curve-content", title: "Equity Curve & Statistics", tabId: "equity-curve" },
+        { id: "returns-distribution-content", title: "Returns Distribution & Margins", tabId: "returns-distribution" },
+        { id: "single-strategies-content", title: "Single Strategies", tabId: "single-strategies" },
+        { id: "monte-carlo-content", title: "Monte Carlo Simulation", tabId: "monte-carlo" },
+        { id: "stress-test-content", title: "Stress Test", tabId: "stress-test" }
+      ]
+
+      for (let i = 0; i < tabs.length; i++) {
+        const tab = tabs[i]
+        setExportProgress(`Capturing ${tab.title}... (${i + 1}/${tabs.length})`)
+
+        // Switch to the tab
+        const tabButton = document.querySelector(`[data-tab="${tab.tabId}"]`) as HTMLButtonElement
+        if (tabButton) {
+          tabButton.click()
+          await new Promise(resolve => setTimeout(resolve, 1000)) // Wait for tab content to load
+        }
+
+        try {
+          // Try to capture the specific tab content
+          let elementToCapture = document.getElementById(tab.id)
+          
+          // Fallback to the main dashboard content area
+          if (!elementToCapture) {
+            elementToCapture = document.querySelector('.bg-white.dark\\:bg-gray-800.rounded-lg.shadow-md.p-6') as HTMLElement
+          }
+
+          if (elementToCapture) {
+            const imageData = await captureElement(elementToCapture.id || `tab-${i}`, tab.title)
+            
+            // Add new page (except for first tab)
+            if (i > 0) {
+              pdf.addPage()
+            } else {
+              pdf.addPage() // Add page after cover
+            }
+
+            // Add title
+            pdf.setFontSize(18)
+            pdf.text(tab.title, pageWidth / 2, 30, { align: "center" })
+
+            // Calculate image dimensions
+            const img = new Image()
+            img.src = imageData
+            await new Promise(resolve => {
+              img.onload = resolve
+            })
+
+            const imgWidth = pageWidth - (margin * 2)
+            const imgHeight = (img.height * imgWidth) / img.width
+            
+            // Check if image fits on page, if not scale it down
+            const maxHeight = pageHeight - 60 // Leave space for title and margins
+            const finalHeight = Math.min(imgHeight, maxHeight)
+            const finalWidth = (img.width * finalHeight) / img.height
+
+            pdf.addImage(imageData, "PNG", (pageWidth - finalWidth) / 2, 40, finalWidth, finalHeight)
+          }
+        } catch (error) {
+          console.warn(`Could not capture ${tab.title}:`, error)
+          // Add a page with error message
+          if (i > 0) {
+            pdf.addPage()
+          } else {
+            pdf.addPage()
+          }
+          pdf.setFontSize(18)
+          pdf.text(tab.title, pageWidth / 2, 30, { align: "center" })
+          pdf.setFontSize(12)
+          pdf.text("Error capturing this section", pageWidth / 2, 60, { align: "center" })
+        }
+      }
+
+      setExportProgress("Finalizing PDF...")
+      
+      // Save the PDF
+      const fileName = `Portfolio_Backtest_Report_${currentDate.replace(/\//g, "-")}.pdf`
+      pdf.save(fileName)
+
+      setExportProgress("Report exported successfully!")
+      setTimeout(() => setExportProgress(""), 3000)
+
+    } catch (error) {
+      console.error("Error generating report:", error)
+      setExportProgress("Error during export")
+      setTimeout(() => setExportProgress(""), 3000)
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <Button
+        onClick={generateReport}
+        disabled={isExporting}
+        className="flex items-center gap-2"
+        variant="outline"
+      >
+        {isExporting ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <Download className="h-4 w-4" />
+        )}
+        {isExporting ? "Exporting..." : "Export Report"}
+      </Button>
+      
+      {exportProgress && (
+        <span className="text-sm text-gray-600 dark:text-gray-400">
+          {exportProgress}
+        </span>
+      )}
+    </div>
+  )
+}

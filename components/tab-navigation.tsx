@@ -17,6 +17,7 @@ export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
           activeTab === "equity-curve" ? "border-primary font-medium" : "border-transparent"
         }`}
         onClick={() => onTabChange("equity-curve")}
+        data-tab="equity-curve"
       >
         <LineChart className="h-4 w-4" />
         <span>Equity Curve & Statistics</span>
@@ -28,6 +29,7 @@ export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
           activeTab === "returns-distribution" ? "border-primary font-medium" : "border-transparent"
         }`}
         onClick={() => onTabChange("returns-distribution")}
+        data-tab="returns-distribution"
       >
         <BarChart3 className="h-4 w-4" />
         <span>Returns Distribution & Margins</span>
@@ -39,6 +41,7 @@ export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
           activeTab === "single-strategies" ? "border-primary font-medium" : "border-transparent"
         }`}
         onClick={() => onTabChange("single-strategies")}
+        data-tab="single-strategies"
       >
         <SplitSquareVertical className="h-4 w-4" />
         <span>Single Strategies</span>
@@ -50,6 +53,7 @@ export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
           activeTab === "monte-carlo" ? "border-primary font-medium" : "border-transparent"
         }`}
         onClick={() => onTabChange("monte-carlo")}
+        data-tab="monte-carlo"
       >
         <Shuffle className="h-4 w-4" />
         <span>Monte Carlo Simulation</span>
@@ -61,6 +65,7 @@ export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
           activeTab === "stress-test" ? "border-primary font-medium" : "border-transparent"
         }`}
         onClick={() => onTabChange("stress-test")}
+        data-tab="stress-test"
       >
         <AlertTriangle className="h-4 w-4" />
         <span>Stress Test</span>
