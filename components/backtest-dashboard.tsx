@@ -11,6 +11,8 @@ import { MonteCarloTab } from "@/components/tabs/monte-carlo-tab"
 import { StressTestTab } from "@/components/tabs/stress-test-tab"
 import type { PortfolioData } from "@/types/portfolio"
 import { processTradeStationCSV, processMultiChartsCSV, processNinjaTraderCSV } from "@/lib/data-processors"
+import type { MonteCarloResult } from "@/lib/monte-carlo"
+import type { StressTestResult } from "@/lib/stress-test"
 import { initializeExchangeRate, updateExchangeRate } from "@/lib/formatters"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
@@ -31,6 +33,10 @@ export function BacktestDashboard() {
     startDate: "2008-01-01",
     endDate: "2099-01-01",
   })
+  const [monteCarloResult, setMonteCarloResult] = useState<MonteCarloResult | null>(null)
+  const [isMonteCarloRunning, setIsMonteCarloRunning] = useState(false)
+  const [stressTestResult, setStressTestResult] = useState<StressTestResult | null>(null)
+  const [isStressTestRunning, setIsStressTestRunning] = useState(false)
 
   // Inizializza il tasso di cambio al caricamento del componente
   useEffect(() => {
@@ -87,6 +93,8 @@ export function BacktestDashboard() {
     setPortfolioData(null)
     setError(null)
     setActiveTab("equity-curve")
+    setMonteCarloResult(null)
+    setStressTestResult(null)
   }
 
   const handleMarginTypeChange = (checked: boolean) => {
@@ -262,12 +270,27 @@ export function BacktestDashboard() {
             )}
             {activeTab === "monte-carlo" && (
               <div id="monte-carlo-content">
-                <MonteCarloTab portfolioData={portfolioData} currency={currency} />
+                <MonteCarloTab
+                  portfolioData={portfolioData}
+                  currency={currency}
+                  results={monteCarloResult}
+                  setResults={setMonteCarloResult}
+                  isRunning={isMonteCarloRunning}
+                  setIsRunning={setIsMonteCarloRunning}
+                />
               </div>
             )}
             {activeTab === "stress-test" && (
               <div id="stress-test-content">
-                <StressTestTab portfolioData={portfolioData} currency={currency} marginType={marginType} />
+                <StressTestTab
+                  portfolioData={portfolioData}
+                  currency={currency}
+                  marginType={marginType}
+                  result={stressTestResult}
+                  setResult={setStressTestResult}
+                  isLoading={isStressTestRunning}
+                  setIsLoading={setIsStressTestRunning}
+                />
               </div>
             )}
           </div>

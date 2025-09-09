@@ -12,29 +12,37 @@ import { runMonteCarloSimulation, type MonteCarloResult } from "@/lib/monte-carl
 import { createMonteCarloCharts } from "@/lib/chart-creators"
 
 interface MonteCarloTabProps {
-  portfolioData: PortfolioData
-  currency?: "USD" | "EUR"
+  portfolioData: PortfolioData;
+  currency?: "USD" | "EUR";
+  results: MonteCarloResult | null;
+  setResults: (results: MonteCarloResult | null) => void;
+  isRunning: boolean;
+  setIsRunning: (isRunning: boolean) => void;
 }
 
-export function MonteCarloTab({ portfolioData, currency = "USD" }: MonteCarloTabProps) {
+export function MonteCarloTab({
+  portfolioData,
+  currency = "USD",
+  results,
+  setResults,
+  isRunning,
+  setIsRunning,
+}: MonteCarloTabProps) {
   const [simulations, setSimulations] = useState(1000)
   const [timeframe, setTimeframe] = useState("1y")
-  const [isRunning, setIsRunning] = useState(false)
-  const [results, setResults] = useState<MonteCarloResult | null>(null)
   const [simulationMethod, setSimulationMethod] = useState<"bootstrap" | "parametric">("bootstrap")
 
   const monteCarloChartRef = useRef<HTMLDivElement>(null)
   const drawdownDistributionRef = useRef<HTMLDivElement>(null)
   const finalEquityDistributionRef = useRef<HTMLDivElement>(null)
 
-  // Funzione per eseguire la simulazione
   const runSimulation = async () => {
     if (!portfolioData || isRunning) return
 
     setIsRunning(true)
 
     try {
-      // Esegui la simulazione in modo asincrono per non bloccare l'UI
+      // Run the simulation asynchronously to avoid blocking the UI
       setTimeout(async () => {
         const result = await runMonteCarloSimulation(
           portfolioData.portfolioTrades,
@@ -52,7 +60,7 @@ export function MonteCarloTab({ portfolioData, currency = "USD" }: MonteCarloTab
     }
   }
 
-  // Aggiorna i grafici quando cambiano i risultati
+  // Update charts when results change
   useEffect(() => {
     if (
       results &&

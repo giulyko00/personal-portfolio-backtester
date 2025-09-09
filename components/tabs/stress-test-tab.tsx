@@ -10,21 +10,31 @@ import { formatCurrency } from "@/lib/formatters"
 import { runStressTest, type StressTestResult } from "@/lib/stress-test"
 
 interface StressTestTabProps {
-  portfolioData: PortfolioData
-  currency?: "USD" | "EUR"
-  marginType?: "intraday" | "overnight"
+  portfolioData: PortfolioData;
+  currency?: "USD" | "EUR";
+  marginType?: "intraday" | "overnight";
+  result: StressTestResult | null;
+  setResult: (result: StressTestResult | null) => void;
+  isLoading: boolean;
+  setIsLoading: (isLoading: boolean) => void;
 }
 
-export function StressTestTab({ portfolioData, currency = "USD", marginType = "intraday" }: StressTestTabProps) {
+export function StressTestTab({
+  portfolioData,
+  currency = "USD",
+  marginType = "intraday",
+  result: stressTestResult,
+  setResult: setStressTestResult,
+  isLoading,
+  setIsLoading,
+}: StressTestTabProps) {
   const [removalPercentage, setRemovalPercentage] = useState([5])
-  const [stressTestResult, setStressTestResult] = useState<StressTestResult | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
 
   const handleRunStressTest = async () => {
     setIsLoading(true)
     try {
-      const result = await runStressTest(portfolioData, removalPercentage[0], marginType)
-      setStressTestResult(result)
+      const newResult = await runStressTest(portfolioData, removalPercentage[0], marginType);
+      setStressTestResult(newResult);
     } catch (error) {
       console.error("Error running stress test:", error)
     } finally {
@@ -38,7 +48,6 @@ export function StressTestTab({ portfolioData, currency = "USD", marginType = "i
 
   return (
     <div className="space-y-6">
-      {/* Controlli */}
       <Card>
         <CardHeader>
           <CardTitle>Stress Test Configuration</CardTitle>
@@ -67,10 +76,8 @@ export function StressTestTab({ portfolioData, currency = "USD", marginType = "i
         </CardContent>
       </Card>
 
-      {/* Risultati */}
       {stressTestResult && (
         <>
-          {/* Sommario dell'impatto */}
           <Card>
             <CardHeader>
               <CardTitle>Stress Test Impact Summary</CardTitle>
@@ -133,7 +140,6 @@ export function StressTestTab({ portfolioData, currency = "USD", marginType = "i
             </CardContent>
           </Card>
 
-          {/* Confronto statistiche */}
           <Card>
             <CardHeader>
               <CardTitle>Statistics Comparison</CardTitle>
