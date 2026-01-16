@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
-import { Download, Loader2 } from "lucide-react"
+import { Download, Loader2, FileSpreadsheet } from "lucide-react"
 import html2canvas from "html2canvas"
 import jsPDF from "jspdf"
 import type { PortfolioData } from "@/types/portfolio"
@@ -30,7 +30,73 @@ export function ReportExporter({
   onRunStressTest 
 }: ReportExporterProps) {
   const [isExporting, setIsExporting] = useState(false)
+  const [isExportingCSV, setIsExportingCSV] = useState(false)
   const { toast } = useToast()
+
+  const exportDailyProfitsCSV = async () => {
+    if (!portfolioData) return
+    setIsExportingCSV(true)
+    toast({ title: "Generating Daily Profits CSV..." })
+
+    try {
+      const { dailyReturns, portfolioEquity, drawdowns } = portfolioData
+
+      // Convert dailyReturns object to sorted array of [date, profit]
+      const sortedDailyEntries = Object.entries(dailyReturns)
+        .map(([dateStr, profit]) => ({
+          date: new Date(dateStr),
+          profit,
+        }))
+        .sort((a, b) => a.date.getTime() - b.date.getTime())
+
+      // Build CSV rows: date,daily_mtm,equity,drawdown,dd_duration
+      const rows = [
+        "date,daily_mtm,equity,drawdown,dd_duration",
+        ...sortedDailyEntries.map((entry, idx) => {
+          const dateStr = entry.date.toISOString().split("T")[0]
+          const dailyMtm = entry.profit
+          const equity = portfolioEquity[idx] ?? 0
+          const drawdown = drawdowns[idx] ?? 0
+          // Simple dd_duration: count consecutive days with negative drawdown
+          let ddDuration = 0
+          if (drawdown < 0) {
+            let j = idx
+            while (j >= 0 && drawdowns[j] < 0) {
+              ddDuration++
+              j--
+            }
+          }
+          return `${dateStr},${dailyMtm},${equity},${drawdown},${ddDuration}`
+        }),
+      ]
+
+      const csvContent = rows.join("\n")
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.setAttribute("download", `daily_profits_${new Date().toISOString().split("T")[0]}.csv`)
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+
+      toast({
+        title: "CSV Exported Successfully!",
+        description: "Daily profits CSV has been downloaded.",
+        variant: "default",
+      })
+    } catch (error) {
+      console.error("Error exporting CSV:", error)
+      toast({
+        title: "Error Exporting CSV",
+        description: "An unexpected error occurred. Please check the console for details.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsExportingCSV(false)
+    }
+  }
 
   const captureElement = async (elementId: string, title: string): Promise<string> => {
     const element = document.getElementById(elementId)
@@ -215,6 +281,19 @@ export function ReportExporter({
 
   return (
     <div className="flex items-center gap-2">
+      <Button
+        onClick={exportDailyProfitsCSV}
+        disabled={isExportingCSV || !portfolioData}
+        className="flex items-center gap-2"
+        variant="outline"
+      >
+        {isExportingCSV ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <FileSpreadsheet className="h-4 w-4" />
+        )}
+        {isExportingCSV ? "Exporting..." : "Export CSV"}
+      </Button>
       <Button
         onClick={generateReport}
         disabled={isExporting}
