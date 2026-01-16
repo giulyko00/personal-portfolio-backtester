@@ -292,7 +292,7 @@ export function ReportExporter({
         ) : (
           <FileSpreadsheet className="h-4 w-4" />
         )}
-        {isExportingCSV ? "Exporting..." : "Export CSV"}
+        {isExportingCSV ? "Exporting..." : "Export Daily Profits CSV"}
       </Button>
       <Button
         onClick={generateReport}
